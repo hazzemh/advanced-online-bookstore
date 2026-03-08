@@ -1,6 +1,8 @@
 package com.example.bookstore.common.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -107,5 +109,18 @@ public class FileService {
         if (fileName == null) return false;
         String extension = getFileExtension(fileName);
         return Arrays.asList("jpg", "jpeg", "png", "gif", "webp").contains(extension);
+    }
+
+    public Resource getImageResource(String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
+            throw new IllegalArgumentException("Filename cannot be empty");
+        }
+
+        Path filePath = Paths.get(UPLOAD_DIR, fileName);
+        if (!Files.exists(filePath)) {
+            throw new RuntimeException("File not found: " + fileName);
+        }
+
+        return new FileSystemResource(filePath);
     }
 }
