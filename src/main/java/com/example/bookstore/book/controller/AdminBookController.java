@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.UUID;
 
 @RestController
@@ -50,7 +51,18 @@ public class AdminBookController {
         Page<BookResponse> response = bookService.getAllBooks(pageable);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/{bookId}/upload-image")
+    public ResponseEntity<BookResponse> uploadBookImage(
+            @PathVariable UUID bookId,
+            @RequestParam("image") MultipartFile imageFile) {
+        BookResponse response = bookService.uploadBookImage(bookId, imageFile);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{bookId}/image")
+    public ResponseEntity<Void> deleteBookImage(@PathVariable UUID bookId) {
+        bookService.deleteBookImage(bookId);
+        return ResponseEntity.noContent().build();
+    }
 }
-
-
-
