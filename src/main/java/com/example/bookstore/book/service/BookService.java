@@ -5,9 +5,11 @@ import com.example.bookstore.book.dto.CreateBookRequest;
 import com.example.bookstore.book.dto.UpdateBookRequest;
 import com.example.bookstore.book.entity.Book;
 import com.example.bookstore.book.repository.BookRepository;
+import com.example.bookstore.common.service.FileService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -15,9 +17,11 @@ import java.util.UUID;
 public class BookService {
 
     private final BookRepository bookRepository;
+    private final FileService fileService;
 
-    public BookService(BookRepository bookRepository) {
+    public BookService(BookRepository bookRepository, FileService fileService) {
         this.bookRepository = bookRepository;
+        this.fileService = fileService;
     }
 
     // Admin Operations
@@ -136,5 +140,37 @@ public class BookService {
         return bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
     }
-}
 
+    // Image Upload Operations
+    public BookResponse uploadBookImage(UUID bookId, MultipartFile imageFile) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new RuntimeException("Book not found"));
+
+        // Delete existing image if present
+        if (book.getImagePath() != null) {
+            fileService.deleteImage(book.getImagePath());
+        }
+
+        // Upload new image
+        String imagePath = fileService.uploadImage(imageFile);
+        String imageUrl = "/uploads/" + imagePath;
+
+        book.setImagePath(imagePath);
+        book.setImageUrl(imageUrl);
+
+        Book updatedBook = bookRepository.save(book);
+        return mapToResponse(updatedBook);
+    }
+
+    public void deleteBookImage(UUID bookId) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new RuntimeException("Book not found"));
+
+        if (book.getImagePath() != null) {
+            fileService.deleteImage(book.getImagePath());
+            book.setImagePath(null);
+            book.setImageUrl(null);
+            bookRepository.save(book);
+        }
+    }
+}
