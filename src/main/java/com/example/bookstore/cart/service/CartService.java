@@ -107,9 +107,14 @@ public class CartService {
 
         int quantity = request.quantity();
         if (quantity <= 0) {
+            Cart cart = item.getCart();
+            if (cart != null) {
+                cart.getItems().removeIf(i -> i.getId().equals(item.getId()));
+                cartRepository.save(cart);
+                return cartMapper.toResponse(cart);
+            }
             cartItemRepository.delete(item);
-            Cart cart = cartRepository.findByUserId(user.getId()).orElse(null);
-            return cartMapper.toResponse(cart);
+            return cartMapper.toResponse(cartRepository.findByUserId(user.getId()).orElse(null));
         }
 
         Book book = getActiveBookById(item.getBook().getId());
@@ -129,9 +134,14 @@ public class CartService {
         User user = getUserByEmail(userEmail);
         CartItem item = cartItemRepository.findByIdAndCartUserId(itemId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Cart item not found"));
+        Cart cart = item.getCart();
+        if (cart != null) {
+            cart.getItems().removeIf(i -> i.getId().equals(item.getId()));
+            cartRepository.save(cart);
+            return cartMapper.toResponse(cart);
+        }
         cartItemRepository.delete(item);
-        Cart cart = cartRepository.findByUserId(user.getId()).orElse(null);
-        return cartMapper.toResponse(cart);
+        return cartMapper.toResponse(cartRepository.findByUserId(user.getId()).orElse(null));
     }
 
     public void clearCart(String userEmail) {
