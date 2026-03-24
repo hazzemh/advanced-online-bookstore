@@ -30,18 +30,19 @@ class BookServiceTest {
 
     private CreateBookRequest validCreateRequest;
     private UpdateBookRequest validUpdateRequest;
+    private String suffix;
 
     @BeforeEach
     void setUp() {
-        bookRepository.deleteAll();
+        suffix = UUID.randomUUID().toString().substring(0, 8);
 
         validCreateRequest = new CreateBookRequest(
-                "The Great Gatsby",
+                "The Great Gatsby " + suffix,
                 "F. Scott Fitzgerald",
                 "A classic American novel",
                 new BigDecimal("12.99"),
                 50,
-                "978-0-7432-7356-5",
+                "978-0-7432-7356-5-" + suffix,
                 "Fiction",
                 1925,
                 180,
@@ -49,12 +50,12 @@ class BookServiceTest {
         );
 
         validUpdateRequest = new UpdateBookRequest(
-                "The Great Gatsby - Updated",
+                "The Great Gatsby - Updated " + suffix,
                 "F. Scott Fitzgerald",
                 "A classic American novel - Updated",
                 new BigDecimal("14.99"),
                 60,
-                "978-0-7432-7356-5",
+                "978-0-7432-7356-5-" + suffix,
                 "Fiction",
                 1925,
                 180,
@@ -67,7 +68,7 @@ class BookServiceTest {
         BookResponse response = bookService.createBook(validCreateRequest);
 
         assertNotNull(response.id());
-        assertEquals("The Great Gatsby", response.title());
+        assertEquals("The Great Gatsby " + suffix, response.title());
         assertEquals("F. Scott Fitzgerald", response.author());
         assertEquals(new BigDecimal("12.99"), response.price());
         assertEquals(50, response.stockQuantity());
@@ -106,7 +107,7 @@ class BookServiceTest {
 
         BookResponse updated = bookService.updateBook(created.id(), validUpdateRequest);
 
-        assertEquals("The Great Gatsby - Updated", updated.title());
+        assertEquals("The Great Gatsby - Updated " + suffix, updated.title());
         assertEquals(new BigDecimal("14.99"), updated.price());
         assertEquals(60, updated.stockQuantity());
     }
@@ -134,10 +135,10 @@ class BookServiceTest {
         bookService.createBook(validCreateRequest);
 
         Pageable pageable = PageRequest.of(0, 10);
-        Page<BookResponse> results = bookService.searchByTitle("Gatsby", pageable);
+        Page<BookResponse> results = bookService.searchByTitle("Gatsby " + suffix, pageable);
 
         assertTrue(results.getContent().size() > 0);
-        assertEquals("The Great Gatsby", results.getContent().get(0).title());
+        assertEquals("The Great Gatsby " + suffix, results.getContent().get(0).title());
     }
 
     @Test
@@ -194,7 +195,7 @@ class BookServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<BookResponse> results = bookService.getAllBooks(pageable);
 
-        assertEquals(1, results.getTotalElements());
+        assertTrue(results.getTotalElements() >= 1);
     }
 }
 

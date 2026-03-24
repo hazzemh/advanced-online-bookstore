@@ -39,16 +39,14 @@ class CartServiceTest {
 
     private User user;
     private Book book;
+    private String suffix;
 
     @BeforeEach
     void setUp() {
-        cartItemRepository.deleteAll();
-        cartRepository.deleteAll();
-        bookRepository.deleteAll();
-        userRepository.deleteAll();
+        suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
 
         user = userRepository.save(User.builder()
-                .email("cart.user@example.com")
+                .email("cart.user+" + suffix + "@test.com")
                 .password("password")
                 .firstName("Cart")
                 .lastName("User")
@@ -57,12 +55,12 @@ class CartServiceTest {
                 .build());
 
         book = bookRepository.save(Book.builder()
-                .title("Test Book")
+                .title("Test Book " + suffix)
                 .author("Test Author")
                 .description("Test Description")
                 .price(new BigDecimal("10.00"))
                 .stockQuantity(5)
-                .isbn("TEST-ISBN-123")
+                .isbn("TEST-ISBN-123-" + suffix)
                 .genre("Fiction")
                 .publicationYear(2020)
                 .pages(200)
