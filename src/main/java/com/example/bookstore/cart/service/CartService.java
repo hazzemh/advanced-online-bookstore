@@ -108,13 +108,10 @@ public class CartService {
         int quantity = request.quantity();
         if (quantity <= 0) {
             Cart cart = item.getCart();
-            if (cart != null) {
-                cart.getItems().removeIf(i -> i.getId().equals(item.getId()));
-                cartRepository.save(cart);
-                return cartMapper.toResponse(cart);
-            }
-            cartItemRepository.delete(item);
-            return cartMapper.toResponse(cartRepository.findByUserId(user.getId()).orElse(null));
+            // Keep the in-memory collection consistent with the DB to avoid returning stale items.
+            cart.getItems().removeIf(ci -> ci.getId().equals(item.getId()));
+            cartRepository.save(cart);
+            return cartMapper.toResponse(cart);
         }
 
         Book book = getActiveBookById(item.getBook().getId());
@@ -135,13 +132,9 @@ public class CartService {
         CartItem item = cartItemRepository.findByIdAndCartUserId(itemId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Cart item not found"));
         Cart cart = item.getCart();
-        if (cart != null) {
-            cart.getItems().removeIf(i -> i.getId().equals(item.getId()));
-            cartRepository.save(cart);
-            return cartMapper.toResponse(cart);
-        }
-        cartItemRepository.delete(item);
-        return cartMapper.toResponse(cartRepository.findByUserId(user.getId()).orElse(null));
+        cart.getItems().removeIf(ci -> ci.getId().equals(item.getId()));
+        cartRepository.save(cart);
+        return cartMapper.toResponse(cart);
     }
 
     public void clearCart(String userEmail) {
