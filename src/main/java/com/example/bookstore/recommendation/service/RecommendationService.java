@@ -4,6 +4,8 @@ import com.example.bookstore.book.dto.BookResponse;
 import com.example.bookstore.book.entity.Book;
 import com.example.bookstore.book.repository.BookRepository;
 import com.example.bookstore.cart.repository.CartItemRepository;
+import com.example.bookstore.order.entity.OrderStatus;
+import com.example.bookstore.order.repository.OrderItemRepository;
 import com.example.bookstore.recommendation.dto.PreferenceStat;
 import com.example.bookstore.recommendation.dto.UserPreferenceResponse;
 import com.example.bookstore.review.repository.ReviewRepository;
@@ -23,24 +25,30 @@ public class RecommendationService {
     private static final int POSITIVE_REVIEW_RATING = 4;
     private static final int NEGATIVE_REVIEW_RATING = 2;
 
+    private static final EnumSet<OrderStatus> POSITIVE_ORDER_STATUSES =
+            EnumSet.of(OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
+
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
     private final WishlistRepository wishlistRepository;
     private final CartItemRepository cartItemRepository;
+    private final OrderItemRepository orderItemRepository;
 
     public RecommendationService(
             UserRepository userRepository,
             BookRepository bookRepository,
             ReviewRepository reviewRepository,
             WishlistRepository wishlistRepository,
-            CartItemRepository cartItemRepository
+            CartItemRepository cartItemRepository,
+            OrderItemRepository orderItemRepository
     ) {
         this.userRepository = userRepository;
         this.bookRepository = bookRepository;
         this.reviewRepository = reviewRepository;
         this.wishlistRepository = wishlistRepository;
         this.cartItemRepository = cartItemRepository;
+        this.orderItemRepository = orderItemRepository;
     }
 
     public List<BookResponse> recommend(String userEmail, RecommendationStrategy strategy, int limit) {
@@ -52,6 +60,9 @@ public class RecommendationService {
 
         UUID userId = user.getId();
 
+        Set<UUID> purchasedBookIds = new HashSet<>(
+                orderItemRepository.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES)
+        );
         Set<UUID> wishlistBookIds = new HashSet<>(wishlistRepository.findBookIdsByUserId(userId));
         Set<UUID> cartBookIds = new HashSet<>(cartItemRepository.findBookIdsInUserCart(userId));
         Set<UUID> reviewedBookIds = new HashSet<>(reviewRepository.findReviewedBookIdsByUserId(userId));
@@ -60,11 +71,13 @@ public class RecommendationService {
         Set<UUID> negativeReviewBookIds = new HashSet<>(reviewRepository.findBookIdsByUserIdAndMaxRating(userId, NEGATIVE_REVIEW_RATING));
 
         Set<UUID> positiveSignalBookIds = new HashSet<>();
+        positiveSignalBookIds.addAll(purchasedBookIds);
         positiveSignalBookIds.addAll(wishlistBookIds);
         positiveSignalBookIds.addAll(cartBookIds);
         positiveSignalBookIds.addAll(positiveReviewBookIds);
 
         Set<UUID> excludedBookIds = new HashSet<>();
+        excludedBookIds.addAll(purchasedBookIds);
         excludedBookIds.addAll(wishlistBookIds);
         excludedBookIds.addAll(cartBookIds);
         excludedBookIds.addAll(reviewedBookIds);
@@ -72,7 +85,11 @@ public class RecommendationService {
 
         Map<String, Integer> genrePrefs = new HashMap<>();
         Map<String, Integer> authorPrefs = new HashMap<>();
-        buildPreferencesFromBooks(positiveSignalBookIds, genrePrefs, authorPrefs);
+        // Purchases are the strongest signal.
+        buildPreferencesFromBooks(purchasedBookIds, 3, genrePrefs, authorPrefs);
+        buildPreferencesFromBooks(wishlistBookIds, 2, genrePrefs, authorPrefs);
+        buildPreferencesFromBooks(cartBookIds, 1, genrePrefs, authorPrefs);
+        buildPreferencesFromBooks(positiveReviewBookIds, 1, genrePrefs, authorPrefs);
 
         Map<UUID, Double> scored;
         if (strategy == null) {
@@ -127,13 +144,15 @@ public class RecommendationService {
         UUID userId = user.getId();
 
         Set<UUID> positiveSignalBookIds = new HashSet<>();
+        positiveSignalBookIds.addAll(orderItemRepository.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES));
         positiveSignalBookIds.addAll(wishlistRepository.findBookIdsByUserId(userId));
         positiveSignalBookIds.addAll(cartItemRepository.findBookIdsInUserCart(userId));
         positiveSignalBookIds.addAll(reviewRepository.findBookIdsByUserIdAndMinRating(userId, POSITIVE_REVIEW_RATING));
 
         Map<String, Integer> genrePrefs = new HashMap<>();
         Map<String, Integer> authorPrefs = new HashMap<>();
-        buildPreferencesFromBooks(positiveSignalBookIds, genrePrefs, authorPrefs);
+        // Keep it simple: aggregate all positive signals for the profile.
+        buildPreferencesFromBooks(positiveSignalBookIds, 1, genrePrefs, authorPrefs);
 
         List<PreferenceStat> topGenres = topStats(genrePrefs, maxGenres);
         List<PreferenceStat> topAuthors = topStats(authorPrefs, maxAuthors);
@@ -141,21 +160,22 @@ public class RecommendationService {
         return new UserPreferenceResponse(topGenres, topAuthors, positiveSignalBookIds.size());
     }
 
-    private void buildPreferencesFromBooks(Set<UUID> bookIds, Map<String, Integer> genrePrefs, Map<String, Integer> authorPrefs) {
+    private void buildPreferencesFromBooks(Set<UUID> bookIds, int weight, Map<String, Integer> genrePrefs, Map<String, Integer> authorPrefs) {
         if (bookIds == null || bookIds.isEmpty()) {
             return;
         }
+        int w = Math.max(1, weight);
         for (Book b : bookRepository.findAllById(bookIds)) {
             if (!Boolean.TRUE.equals(b.getIsActive())) {
                 continue;
             }
             String genre = normalize(b.getGenre());
             if (genre != null) {
-                genrePrefs.merge(genre, 1, Integer::sum);
+                genrePrefs.merge(genre, w, Integer::sum);
             }
             String author = normalize(b.getAuthor());
             if (author != null) {
-                authorPrefs.merge(author, 1, Integer::sum);
+                authorPrefs.merge(author, w, Integer::sum);
             }
         }
     }
@@ -205,6 +225,7 @@ public class RecommendationService {
 
     private Map<UUID, Double> collaborativeScores(UUID userId, Set<UUID> excludedBookIds) {
         Set<UUID> myLikes = new HashSet<>();
+        myLikes.addAll(orderItemRepository.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES));
         myLikes.addAll(wishlistRepository.findBookIdsByUserId(userId));
         myLikes.addAll(reviewRepository.findBookIdsByUserIdAndMinRating(userId, POSITIVE_REVIEW_RATING));
         myLikes.addAll(cartItemRepository.findBookIdsInUserCart(userId));
@@ -214,6 +235,12 @@ public class RecommendationService {
         }
 
         Map<UUID, Set<UUID>> likesByUser = new HashMap<>();
+
+        for (Object[] row : orderItemRepository.findAllUserBookIdsByStatuses(POSITIVE_ORDER_STATUSES)) {
+            UUID u = (UUID) row[0];
+            UUID b = (UUID) row[1];
+            likesByUser.computeIfAbsent(u, __ -> new HashSet<>()).add(b);
+        }
 
         for (Object[] row : wishlistRepository.findAllUserBookIds()) {
             UUID u = (UUID) row[0];
