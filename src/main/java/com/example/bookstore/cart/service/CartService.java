@@ -107,8 +107,10 @@ public class CartService {
 
         int quantity = request.quantity();
         if (quantity <= 0) {
-            cartItemRepository.delete(item);
-            Cart cart = cartRepository.findByUserId(user.getId()).orElse(null);
+            Cart cart = item.getCart();
+            // Keep the in-memory collection consistent with the DB to avoid returning stale items.
+            cart.getItems().removeIf(ci -> ci.getId().equals(item.getId()));
+            cartRepository.save(cart);
             return cartMapper.toResponse(cart);
         }
 
@@ -129,8 +131,9 @@ public class CartService {
         User user = getUserByEmail(userEmail);
         CartItem item = cartItemRepository.findByIdAndCartUserId(itemId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Cart item not found"));
-        cartItemRepository.delete(item);
-        Cart cart = cartRepository.findByUserId(user.getId()).orElse(null);
+        Cart cart = item.getCart();
+        cart.getItems().removeIf(ci -> ci.getId().equals(item.getId()));
+        cartRepository.save(cart);
         return cartMapper.toResponse(cart);
     }
 

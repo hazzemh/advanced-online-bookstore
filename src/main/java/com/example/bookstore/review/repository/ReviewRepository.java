@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,5 +49,17 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
      */
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.book.id = :bookId")
     Double getAverageRatingByBookId(@Param("bookId") UUID bookId);
+
+    @Query("select r.book.id from Review r where r.user.id = :userId")
+    List<UUID> findReviewedBookIdsByUserId(@Param("userId") UUID userId);
+
+    @Query("select r.book.id from Review r where r.user.id = :userId and r.rating >= :minRating")
+    List<UUID> findBookIdsByUserIdAndMinRating(@Param("userId") UUID userId, @Param("minRating") Integer minRating);
+
+    @Query("select r.book.id from Review r where r.user.id = :userId and r.rating <= :maxRating")
+    List<UUID> findBookIdsByUserIdAndMaxRating(@Param("userId") UUID userId, @Param("maxRating") Integer maxRating);
+
+    @Query("select r.user.id, r.book.id from Review r where r.rating >= :minRating")
+    List<Object[]> findAllUserBookIdsWithMinRating(@Param("minRating") Integer minRating);
 }
 
