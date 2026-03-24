@@ -6,6 +6,11 @@ import com.example.bookstore.cart.entity.Cart;
 import com.example.bookstore.cart.entity.CartItem;
 import com.example.bookstore.cart.repository.CartItemRepository;
 import com.example.bookstore.cart.repository.CartRepository;
+import com.example.bookstore.order.entity.Order;
+import com.example.bookstore.order.entity.OrderItem;
+import com.example.bookstore.order.entity.OrderStatus;
+import com.example.bookstore.order.repository.OrderItemRepository;
+import com.example.bookstore.order.repository.OrderRepository;
 import com.example.bookstore.review.entity.Review;
 import com.example.bookstore.review.repository.ReviewRepository;
 import com.example.bookstore.user.entity.Role;
@@ -48,12 +53,20 @@ class RecommendationServiceTest {
     @Autowired
     private CartItemRepository cartItemRepository;
 
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private OrderItemRepository orderItemRepository;
+
     @BeforeEach
     void setUp() {
         reviewRepository.deleteAll();
         wishlistRepository.deleteAll();
         cartItemRepository.deleteAll();
         cartRepository.deleteAll();
+        orderItemRepository.deleteAll();
+        orderRepository.deleteAll();
         bookRepository.deleteAll();
         userRepository.deleteAll();
     }
@@ -114,6 +127,70 @@ class RecommendationServiceTest {
     }
 
     @Test
+    void orders_shouldActAsPositiveSignalForContentBased() {
+        User u1 = userRepository.save(User.builder()
+                .email("u1@example.com")
+                .password("x")
+                .role(Role.USER)
+                .enabled(true)
+                .build());
+
+        Book purchased = bookRepository.save(Book.builder()
+                .title("Fic 1")
+                .author("AuthorA")
+                .description("d")
+                .price(new BigDecimal("10.00"))
+                .stockQuantity(10)
+                .pages(100)
+                .publisher("P")
+                .genre("Fiction")
+                .build());
+
+        Book candidateSameGenre = bookRepository.save(Book.builder()
+                .title("Fic 2")
+                .author("AuthorB")
+                .description("d")
+                .price(new BigDecimal("12.00"))
+                .stockQuantity(10)
+                .pages(100)
+                .publisher("P")
+                .genre("Fiction")
+                .build());
+
+        Book candidateOtherGenre = bookRepository.save(Book.builder()
+                .title("Sci 1")
+                .author("AuthorC")
+                .description("d")
+                .price(new BigDecimal("15.00"))
+                .stockQuantity(10)
+                .pages(100)
+                .publisher("P")
+                .genre("Science")
+                .build());
+
+        Order order = Order.builder()
+                .user(u1)
+                .status(OrderStatus.PROCESSING)
+                .subtotal(BigDecimal.ZERO)
+                .build();
+        order.getItems().add(OrderItem.builder()
+                .order(order)
+                .book(purchased)
+                .quantity(1)
+                .unitPrice(purchased.getPrice())
+                .lineTotal(purchased.getPrice())
+                .build());
+        orderRepository.save(order);
+
+        List<com.example.bookstore.book.dto.BookResponse> recs =
+                recommendationService.recommend(u1.getEmail(), RecommendationStrategy.CONTENT, 10);
+
+        assertTrue(containsBookId(recs, candidateSameGenre.getId()));
+        assertFalse(containsBookId(recs, purchased.getId()));
+        assertFalse(containsBookId(recs, candidateOtherGenre.getId()));
+    }
+
+    @Test
     void collaborative_shouldRecommendBooksFromSimilarUsers() {
         User u1 = userRepository.save(User.builder()
                 .email("u1@example.com")
@@ -163,6 +240,62 @@ class RecommendationServiceTest {
                 .user(u2)
                 .book(other)
                 .build());
+
+        List<com.example.bookstore.book.dto.BookResponse> recs =
+                recommendationService.recommend(u1.getEmail(), RecommendationStrategy.COLLABORATIVE, 10);
+
+        assertTrue(containsBookId(recs, other.getId()));
+        assertFalse(containsBookId(recs, shared.getId()));
+    }
+
+    @Test
+    void collaborative_shouldUseOrdersAsSignal() {
+        User u1 = userRepository.save(User.builder()
+                .email("u1@example.com")
+                .password("x")
+                .role(Role.USER)
+                .enabled(true)
+                .build());
+        User u2 = userRepository.save(User.builder()
+                .email("u2@example.com")
+                .password("x")
+                .role(Role.USER)
+                .enabled(true)
+                .build());
+
+        Book shared = bookRepository.save(Book.builder()
+                .title("Shared")
+                .author("A")
+                .description("d")
+                .price(new BigDecimal("10.00"))
+                .stockQuantity(10)
+                .pages(100)
+                .publisher("P")
+                .genre("Fiction")
+                .build());
+
+        Book other = bookRepository.save(Book.builder()
+                .title("Other")
+                .author("B")
+                .description("d")
+                .price(new BigDecimal("11.00"))
+                .stockQuantity(10)
+                .pages(100)
+                .publisher("P")
+                .genre("Science")
+                .build());
+
+        Order o1 = Order.builder().user(u1).status(OrderStatus.PROCESSING).subtotal(BigDecimal.ZERO).build();
+        o1.getItems().add(OrderItem.builder()
+                .order(o1).book(shared).quantity(1).unitPrice(shared.getPrice()).lineTotal(shared.getPrice()).build());
+        orderRepository.save(o1);
+
+        Order o2 = Order.builder().user(u2).status(OrderStatus.PROCESSING).subtotal(BigDecimal.ZERO).build();
+        o2.getItems().add(OrderItem.builder()
+                .order(o2).book(shared).quantity(1).unitPrice(shared.getPrice()).lineTotal(shared.getPrice()).build());
+        o2.getItems().add(OrderItem.builder()
+                .order(o2).book(other).quantity(1).unitPrice(other.getPrice()).lineTotal(other.getPrice()).build());
+        orderRepository.save(o2);
 
         List<com.example.bookstore.book.dto.BookResponse> recs =
                 recommendationService.recommend(u1.getEmail(), RecommendationStrategy.COLLABORATIVE, 10);
