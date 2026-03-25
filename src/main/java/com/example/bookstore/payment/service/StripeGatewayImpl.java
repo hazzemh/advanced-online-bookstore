@@ -29,6 +29,9 @@ public class StripeGatewayImpl implements StripeGateway {
                     .setAutomaticPaymentMethods(
                             PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                                     .setEnabled(true)
+                                    // Avoid redirect-based payment methods in API-only tests (CLI/Postman),
+                                    // otherwise Stripe requires a return_url on confirm.
+                                    .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
                                     .build()
                     )
                     .build();
@@ -69,4 +72,3 @@ public class StripeGatewayImpl implements StripeGateway {
         }
     }
 }
-
