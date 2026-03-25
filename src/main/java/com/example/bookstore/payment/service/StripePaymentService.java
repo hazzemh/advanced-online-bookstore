@@ -33,7 +33,7 @@ public class StripePaymentService {
     private final UserRepository userRepository;
     private final OrderService orderService;
 
-    @Value("${stripe.currency:usd}")
+    @Value("${stripe.currency:aed}")
     private String currency;
 
     @Value("${stripe.webhook-secret:}")
