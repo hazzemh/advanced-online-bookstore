@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
@@ -29,5 +30,38 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             where oi.order.status in :statuses
             """)
     List<Object[]> findAllUserBookIdsByStatuses(@Param("statuses") Collection<OrderStatus> statuses);
+
+    @Query("""
+            select oi.book.id,
+                   oi.book.title,
+                   oi.book.author,
+                   oi.book.genre,
+                   coalesce(sum(oi.quantity), 0),
+                   coalesce(sum(oi.lineTotal), 0)
+            from OrderItem oi
+            where oi.order.createdAt >= :from and oi.order.createdAt < :to
+              and oi.order.status in :statuses
+            group by oi.book.id, oi.book.title, oi.book.author, oi.book.genre
+            """)
+    List<Object[]> sumByBookBetweenAndOrderStatusIn(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("statuses") Collection<OrderStatus> statuses
+    );
+
+    @Query("""
+            select oi.book.genre,
+                   coalesce(sum(oi.quantity), 0),
+                   coalesce(sum(oi.lineTotal), 0)
+            from OrderItem oi
+            where oi.order.createdAt >= :from and oi.order.createdAt < :to
+              and oi.order.status in :statuses
+            group by oi.book.genre
+            """)
+    List<Object[]> sumByGenreBetweenAndOrderStatusIn(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("statuses") Collection<OrderStatus> statuses
+    );
 }
 

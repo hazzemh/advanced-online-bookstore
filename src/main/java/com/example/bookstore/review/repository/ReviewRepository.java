@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
@@ -61,5 +62,15 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
     @Query("select r.user.id, r.book.id from Review r where r.rating >= :minRating")
     List<Object[]> findAllUserBookIdsWithMinRating(@Param("minRating") Integer minRating);
+
+    @Query("select distinct r.user.id from Review r where r.createdAt >= :from and r.createdAt < :to")
+    List<UUID> findDistinctUserIdsBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    @Query("""
+            select r.user.id, r.createdAt
+            from Review r
+            where r.createdAt >= :from and r.createdAt < :to
+            """)
+    List<Object[]> findUserIdsAndCreatedAtBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }
 
