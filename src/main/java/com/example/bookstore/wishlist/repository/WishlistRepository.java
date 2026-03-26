@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,4 +25,14 @@ public interface WishlistRepository extends JpaRepository<WishlistItem, UUID> {
 
     @Query("select w.user.id, w.book.id from WishlistItem w")
     List<Object[]> findAllUserBookIds();
+
+    @Query("select distinct w.user.id from WishlistItem w where w.addedAt >= :from and w.addedAt < :to")
+    List<UUID> findDistinctUserIdsBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    @Query("""
+            select w.user.id, w.addedAt
+            from WishlistItem w
+            where w.addedAt >= :from and w.addedAt < :to
+            """)
+    List<Object[]> findUserIdsAndAddedAtBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }
