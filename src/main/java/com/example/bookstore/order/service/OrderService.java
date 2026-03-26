@@ -8,10 +8,13 @@ import com.example.bookstore.order.dto.OrderResponse;
 import com.example.bookstore.order.entity.Order;
 import com.example.bookstore.order.entity.OrderItem;
 import com.example.bookstore.order.entity.OrderStatus;
+import com.example.bookstore.order.event.OrderCreatedEvent;
+import com.example.bookstore.order.event.OrderStatusChangedEvent;
 import com.example.bookstore.order.mapper.OrderMapper;
 import com.example.bookstore.order.repository.OrderRepository;
 import com.example.bookstore.user.entity.User;
 import com.example.bookstore.user.repository.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,17 +32,20 @@ public class OrderService {
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
     private final OrderMapper orderMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(
             OrderRepository orderRepository,
             UserRepository userRepository,
             BookRepository bookRepository,
-            OrderMapper orderMapper
+            OrderMapper orderMapper,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.bookRepository = bookRepository;
         this.orderMapper = orderMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     public OrderResponse createOrder(String userEmail, CreateOrderRequest request) {
@@ -83,6 +89,7 @@ public class OrderService {
         order.setSubtotal(subtotal);
 
         Order saved = orderRepository.save(order);
+        eventPublisher.publishEvent(new OrderCreatedEvent(saved.getId(), user.getEmail(), saved.getSubtotal()));
         return orderMapper.toResponse(saved);
     }
 
@@ -162,6 +169,8 @@ public class OrderService {
         order.setStatus(newStatus);
         order.setStatusUpdatedAt(LocalDateTime.now());
         Order saved = orderRepository.save(order);
+        String userEmail = saved.getUser() == null ? null : saved.getUser().getEmail();
+        eventPublisher.publishEvent(new OrderStatusChangedEvent(saved.getId(), userEmail, current, newStatus));
         return orderMapper.toResponse(saved);
     }
 
