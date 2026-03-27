@@ -5,7 +5,10 @@ import com.example.bookstore.book.dto.CreateBookRequest;
 import com.example.bookstore.book.dto.UpdateBookRequest;
 import com.example.bookstore.book.entity.Book;
 import com.example.bookstore.book.repository.BookRepository;
+import com.example.bookstore.config.CacheConfig;
 import com.example.bookstore.common.service.FileService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -47,6 +50,7 @@ public class BookService {
         return mapToResponse(savedBook);
     }
 
+    @CacheEvict(value = CacheConfig.BOOK_BY_ID_CACHE, key = "#bookId")
     public BookResponse updateBook(UUID bookId, UpdateBookRequest request) {
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
@@ -66,6 +70,7 @@ public class BookService {
         return mapToResponse(updatedBook);
     }
 
+    @CacheEvict(value = CacheConfig.BOOK_BY_ID_CACHE, key = "#bookId")
     public void deleteBook(UUID bookId) {
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
@@ -74,6 +79,7 @@ public class BookService {
     }
 
     // Public Operations
+    @Cacheable(value = CacheConfig.BOOK_BY_ID_CACHE, key = "#bookId")
     public BookResponse getBookById(UUID bookId) {
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
@@ -142,6 +148,7 @@ public class BookService {
     }
 
     // Image Upload Operations
+    @CacheEvict(value = CacheConfig.BOOK_BY_ID_CACHE, key = "#bookId")
     public BookResponse uploadBookImage(UUID bookId, MultipartFile imageFile) {
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
@@ -162,6 +169,7 @@ public class BookService {
         return mapToResponse(updatedBook);
     }
 
+    @CacheEvict(value = CacheConfig.BOOK_BY_ID_CACHE, key = "#bookId")
     public void deleteBookImage(UUID bookId) {
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
