@@ -16,6 +16,8 @@ import com.stripe.model.PaymentIntent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,6 +28,8 @@ import java.util.UUID;
 @Service
 @Transactional
 public class StripePaymentService {
+
+    private static final Logger log = LoggerFactory.getLogger(StripePaymentService.class);
 
     private final StripeGateway stripeGateway;
     private final PaymentRepository paymentRepository;
@@ -61,6 +65,7 @@ public class StripePaymentService {
         User user = getUserByEmail(userEmail);
         Order order = orderRepository.findByIdAndUserId(orderId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Order not found"));
+        log.info("Creating Stripe PaymentIntent orderId={} userId={} status={}", orderId, user.getId(), order.getStatus());
 
         if (order.getStatus() == OrderStatus.CANCELED) {
             throw new IllegalArgumentException("Cannot pay for a canceled order");
@@ -81,6 +86,7 @@ public class StripePaymentService {
                 throw new IllegalArgumentException("Order is already paid");
             }
             StripePaymentIntent pi = stripeGateway.retrievePaymentIntent(existing.getPaymentIntentId());
+            log.info("Reusing existing PaymentIntent orderId={} paymentIntentId={} paymentStatus={}", orderId, existing.getPaymentIntentId(), existing.getStatus());
             return new CreateStripePaymentIntentResponse(orderId, pi.id(), pi.clientSecret(), amount, currency);
         }
 
@@ -99,23 +105,31 @@ public class StripePaymentService {
                 .currency(currency)
                 .build();
         paymentRepository.save(payment);
+        log.info("Payment created orderId={} paymentIntentId={} amountMinor={} currency={}", orderId, pi.id(), amountMinor, currency);
 
         return new CreateStripePaymentIntentResponse(orderId, pi.id(), pi.clientSecret(), amount, currency);
     }
 
     public void handleWebhook(String payload, String stripeSignatureHeader) {
+        if (payload == null || payload.isBlank()) {
+            log.warn("Stripe webhook received empty payload");
+            return;
+        }
         Event event = stripeGateway.constructEvent(payload, stripeSignatureHeader, webhookSecret);
 
         // We only care about PaymentIntent outcomes for now.
         if (event == null || event.getType() == null) {
+            log.warn("Stripe webhook received event with missing type");
             return;
         }
+        log.info("Stripe webhook received type={} id={}", event.getType(), event.getId());
 
         switch (event.getType()) {
             case "payment_intent.succeeded" -> onPaymentIntentSucceeded(event);
             case "payment_intent.payment_failed" -> onPaymentIntentFailed(event);
             default -> {
                 // ignore
+                log.debug("Stripe webhook ignored type={}", event.getType());
             }
         }
     }
@@ -123,11 +137,13 @@ public class StripePaymentService {
     void onPaymentIntentSucceeded(Event event) {
         PaymentIntent pi = deserializePaymentIntent(event);
         if (pi == null) {
+            log.warn("Stripe succeeded event missing PaymentIntent object eventId={}", event.getId());
             return;
         }
 
         Payment payment = paymentRepository.findByPaymentIntentId(pi.getId()).orElse(null);
         if (payment == null) {
+            log.warn("Payment not found for PaymentIntent paymentIntentId={}", pi.getId());
             return;
         }
 
@@ -139,24 +155,29 @@ public class StripePaymentService {
         UUID orderId = payment.getOrder().getId();
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
+            log.warn("Order not found for Payment paymentIntentId={} orderId={}", pi.getId(), orderId);
             return;
         }
         if (order.getStatus() == OrderStatus.CANCELED || order.getStatus() == OrderStatus.DELIVERED) {
+            log.info("Ignoring succeeded webhook due to final order status orderId={} status={}", orderId, order.getStatus());
             return;
         }
         if (order.getStatus() != OrderStatus.PAID) {
             orderService.updateOrderStatus(orderId, OrderStatus.PAID);
         }
+        log.info("Payment succeeded orderId={} paymentIntentId={}", orderId, pi.getId());
     }
 
     void onPaymentIntentFailed(Event event) {
         PaymentIntent pi = deserializePaymentIntent(event);
         if (pi == null) {
+            log.warn("Stripe failed event missing PaymentIntent object eventId={}", event.getId());
             return;
         }
 
         Payment payment = paymentRepository.findByPaymentIntentId(pi.getId()).orElse(null);
         if (payment == null) {
+            log.warn("Payment not found for failed PaymentIntent paymentIntentId={}", pi.getId());
             return;
         }
         if (payment.getStatus() != PaymentStatus.FAILED) {
@@ -168,12 +189,15 @@ public class StripePaymentService {
         UUID orderId = payment.getOrder().getId();
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
+            log.warn("Order not found for failed Payment paymentIntentId={} orderId={}", pi.getId(), orderId);
             return;
         }
         if (order.getStatus() == OrderStatus.CANCELED || order.getStatus() == OrderStatus.DELIVERED) {
+            log.info("Ignoring failed webhook due to final order status orderId={} status={}", orderId, order.getStatus());
             return;
         }
         orderService.updateOrderStatus(orderId, OrderStatus.CANCELED);
+        log.info("Payment failed; order canceled orderId={} paymentIntentId={}", orderId, pi.getId());
     }
 
     private PaymentIntent deserializePaymentIntent(Event event) {

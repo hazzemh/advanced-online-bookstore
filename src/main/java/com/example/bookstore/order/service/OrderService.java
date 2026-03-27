@@ -19,6 +19,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +29,8 @@ import java.util.*;
 @Service
 @Transactional
 public class OrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
@@ -54,6 +58,7 @@ public class OrderService {
         }
 
         User user = getUserByEmail(userEmail);
+        log.info("Creating order for userId={} itemsCount={}", user.getId(), request.items().size());
 
         List<CreateOrderItemRequest> items = mergeDuplicateItems(request.items());
         Map<UUID, Book> bookMap = loadBooks(items);
@@ -90,6 +95,7 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         eventPublisher.publishEvent(new OrderCreatedEvent(saved.getId(), user.getEmail(), saved.getSubtotal()));
+        log.info("Order created orderId={} userId={} subtotal={} status={}", saved.getId(), user.getId(), saved.getSubtotal(), saved.getStatus());
         return orderMapper.toResponse(saved);
     }
 
@@ -146,6 +152,7 @@ public class OrderService {
 
         OrderStatus current = order.getStatus();
         if (current == newStatus) {
+            log.debug("Order status unchanged orderId={} status={}", orderId, newStatus);
             return orderMapper.toResponse(order);
         }
         if (current == OrderStatus.CANCELED) {
@@ -171,6 +178,7 @@ public class OrderService {
         Order saved = orderRepository.save(order);
         String userEmail = saved.getUser() == null ? null : saved.getUser().getEmail();
         eventPublisher.publishEvent(new OrderStatusChangedEvent(saved.getId(), userEmail, current, newStatus));
+        log.info("Order status updated orderId={} from={} to={}", saved.getId(), current, newStatus);
         return orderMapper.toResponse(saved);
     }
 
