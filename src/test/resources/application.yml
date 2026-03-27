@@ -14,7 +14,7 @@ spring:
   session:
     store-type: none
   cache:
-    type: simple
+    type: none
 
 jwt:
   secret: testSecretKeyForJWTWhichShouldBeLongEnoughToBeSecure
