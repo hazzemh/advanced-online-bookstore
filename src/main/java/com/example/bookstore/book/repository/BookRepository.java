@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,5 +35,8 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
 
     @Query("SELECT b FROM Book b WHERE b.isActive = true AND b.stockQuantity > 0")
     Page<Book> findAvailableBooks(Pageable pageable);
+
+    @Query("SELECT DISTINCT b.genre FROM Book b WHERE b.isActive = true AND b.genre IS NOT NULL AND b.genre <> '' ORDER BY b.genre")
+    List<String> findDistinctActiveGenres();
 }
 

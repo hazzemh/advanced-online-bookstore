@@ -13,6 +13,8 @@ spring:
         format_sql: false
   session:
     store-type: none
+  cache:
+    type: none
 
 jwt:
   secret: testSecretKeyForJWTWhichShouldBeLongEnoughToBeSecure
