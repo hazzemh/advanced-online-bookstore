@@ -11,6 +11,16 @@ spring:
       hibernate:
         format_sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+  cache:
+    # Use `simple` for local dev without Redis, or `redis` for multi-instance deployments.
+    type: ${CACHE_TYPE:simple}
+    redis:
+      # Global TTL for all cache entries (you can tune later per cache if needed)
+      time-to-live: ${CACHE_REDIS_TTL:10m}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 jwt:
   secret: ${JWT_SECRET:change-me}

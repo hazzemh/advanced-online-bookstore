@@ -12,8 +12,10 @@ import com.example.bookstore.review.repository.ReviewRepository;
 import com.example.bookstore.user.entity.User;
 import com.example.bookstore.user.repository.UserRepository;
 import com.example.bookstore.wishlist.repository.WishlistRepository;
+import com.example.bookstore.config.CacheConfig;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -51,6 +53,10 @@ public class RecommendationService {
         this.orderItemRepository = orderItemRepository;
     }
 
+    @Cacheable(
+            value = CacheConfig.RECOMMENDATIONS_CACHE,
+            key = "#userEmail + ':' + (#strategy == null ? 'HYBRID' : #strategy.name()) + ':' + #limit"
+    )
     public List<BookResponse> recommend(String userEmail, RecommendationStrategy strategy, int limit) {
         if (limit <= 0) {
             throw new IllegalArgumentException("limit must be >= 1");
@@ -135,6 +141,10 @@ public class RecommendationService {
         return result;
     }
 
+    @Cacheable(
+            value = CacheConfig.RECOMMENDATION_PROFILE_CACHE,
+            key = "#userEmail + ':' + #maxGenres + ':' + #maxAuthors"
+    )
     public UserPreferenceResponse getUserPreferences(String userEmail, int maxGenres, int maxAuthors) {
         if (maxGenres <= 0 || maxAuthors <= 0) {
             throw new IllegalArgumentException("maxGenres/maxAuthors must be >= 1");

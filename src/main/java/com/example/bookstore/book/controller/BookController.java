@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -92,6 +93,11 @@ public class BookController {
         Pageable pageable = PageRequest.of(page, size);
         Page<BookResponse> response = bookService.findAvailableBooks(pageable);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/genres")
+    public ResponseEntity<List<String>> getGenres() {
+        return ResponseEntity.ok(bookService.getGenres());
     }
 }
 

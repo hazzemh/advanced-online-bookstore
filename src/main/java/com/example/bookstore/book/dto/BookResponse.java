@@ -1,6 +1,7 @@
 package com.example.bookstore.book.dto;
 
 import java.math.BigDecimal;
+import java.io.Serializable;
 import java.util.UUID;
 
 public record BookResponse(
@@ -19,5 +20,5 @@ public record BookResponse(
     Double averageRating,
     Integer totalReviews,
     Boolean isActive
-) {}
+) implements Serializable {}
 
