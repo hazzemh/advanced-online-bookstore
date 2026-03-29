@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
+import jakarta.validation.Valid;
 
 import java.util.UUID;
 
@@ -35,7 +36,7 @@ public class AdminBookController {
     }
 
     @PostMapping
-    public ResponseEntity<BookResponse> createBook(@RequestBody CreateBookRequest request) {
+    public ResponseEntity<BookResponse> createBook(@RequestBody @Valid CreateBookRequest request) {
         BookResponse response = bookService.createBook(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -43,7 +44,7 @@ public class AdminBookController {
     @PutMapping("/{bookId}")
     public ResponseEntity<BookResponse> updateBook(
             @PathVariable UUID bookId,
-            @RequestBody UpdateBookRequest request) {
+            @RequestBody @Valid UpdateBookRequest request) {
         BookResponse response = bookService.updateBook(bookId, request);
         return ResponseEntity.ok(response);
     }

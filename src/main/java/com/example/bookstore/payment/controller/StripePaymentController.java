@@ -5,6 +5,7 @@ import com.example.bookstore.payment.dto.CreateStripePaymentIntentResponse;
 import com.example.bookstore.payment.service.StripePaymentService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -29,7 +30,7 @@ public class StripePaymentController {
     @PostMapping("/payment-intents")
     public ResponseEntity<CreateStripePaymentIntentResponse> createPaymentIntent(
             Authentication authentication,
-            @RequestBody CreateStripePaymentIntentRequest request
+            @RequestBody @Valid CreateStripePaymentIntentRequest request
     ) {
         if (request == null || request.orderId() == null) {
             throw new IllegalArgumentException("orderId is required");

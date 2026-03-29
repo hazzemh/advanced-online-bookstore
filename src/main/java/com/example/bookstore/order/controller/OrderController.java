@@ -5,6 +5,7 @@ import com.example.bookstore.order.dto.OrderResponse;
 import com.example.bookstore.order.service.OrderService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,7 +30,7 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(
-            @RequestBody CreateOrderRequest request,
+            @RequestBody @Valid CreateOrderRequest request,
             Authentication authentication
     ) {
         OrderResponse response = orderService.createOrder(authentication.getName(), request);

@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import java.util.UUID;
 
 @Tag(name = "Reviews", description = "Book reviews and ratings endpoints.")
@@ -34,7 +35,7 @@ public class ReviewController {
     @PostMapping
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ReviewResponse> createReview(
-            @RequestBody CreateReviewRequest request,
+            @RequestBody @Valid CreateReviewRequest request,
             Authentication authentication) {
         UUID userId = UUID.fromString(authentication.getName());
         ReviewResponse response = reviewService.createReview(request, userId);
@@ -119,7 +120,7 @@ public class ReviewController {
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ReviewResponse> updateReview(
             @PathVariable UUID reviewId,
-            @RequestBody UpdateReviewRequest request,
+            @RequestBody @Valid UpdateReviewRequest request,
             Authentication authentication) {
         UUID userId = UUID.fromString(authentication.getName());
         ReviewResponse response = reviewService.updateReview(reviewId, request, userId);

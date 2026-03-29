@@ -6,6 +6,7 @@ import com.example.bookstore.order.entity.OrderStatus;
 import com.example.bookstore.order.service.OrderService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,7 +41,7 @@ public class AdminOrderController {
     @PutMapping("/{orderId}/status")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable UUID orderId,
-            @RequestBody UpdateOrderStatusRequest request
+            @RequestBody @Valid UpdateOrderStatusRequest request
     ) {
         OrderResponse response = orderService.updateOrderStatus(orderId, request.status());
         return ResponseEntity.ok(response);
