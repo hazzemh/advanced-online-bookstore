@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: bookstore-postgres
+    environment:
+      POSTGRES_DB: bookstore_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bookstore_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: bookstore-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bookstore-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+
+      DB_URL: jdbc:postgresql://postgres:5432/bookstore_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+
+      JPA_DDL_AUTO: update
+      JPA_SHOW_SQL: "false"
+
+      CACHE_TYPE: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_REDIS_TTL: 10m
+
+      # Change for any real environment (JWT secret must be long enough for HS256)
+      JWT_SECRET: change-me-change-me-change-me-change-me-change-me-change-me
+      JWT_EXPIRATION: 86400000
+
+      # Optional integrations (leave empty unless you configure them)
+      STRIPE_SECRET_KEY: ""
+      STRIPE_WEBHOOK_SECRET: ""
+      STRIPE_CURRENCY: usd
+
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+
+volumes:
+  postgres_data:
+
