@@ -5,6 +5,8 @@ import com.example.bookstore.book.dto.CreateBookRequest;
 import com.example.bookstore.book.dto.UpdateBookRequest;
 import com.example.bookstore.book.service.BookService;
 import com.example.bookstore.common.service.FileService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +20,8 @@ import org.springframework.http.MediaType;
 
 import java.util.UUID;
 
+@Tag(name = "Admin - Books", description = "Admin inventory management endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/admin/books")
 public class AdminBookController {

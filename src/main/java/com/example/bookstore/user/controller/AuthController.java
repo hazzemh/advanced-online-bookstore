@@ -6,12 +6,14 @@ import com.example.bookstore.user.dto.LoginRequest;
 import com.example.bookstore.user.dto.RegisterRequest;
 import com.example.bookstore.user.entity.User;
 import com.example.bookstore.user.service.UserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Auth", description = "Register and login (JWT).")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

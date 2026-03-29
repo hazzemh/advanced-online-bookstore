@@ -4,6 +4,8 @@ import com.example.bookstore.order.dto.OrderResponse;
 import com.example.bookstore.order.dto.UpdateOrderStatusRequest;
 import com.example.bookstore.order.entity.OrderStatus;
 import com.example.bookstore.order.service.OrderService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Admin - Orders", description = "Admin order management endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/admin/orders")
 public class AdminOrderController {

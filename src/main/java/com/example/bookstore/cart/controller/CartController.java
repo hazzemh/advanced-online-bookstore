@@ -4,6 +4,8 @@ import com.example.bookstore.cart.dto.AddToCartRequest;
 import com.example.bookstore.cart.dto.CartResponse;
 import com.example.bookstore.cart.dto.UpdateCartItemQuantityRequest;
 import com.example.bookstore.cart.service.CartService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Cart", description = "Shopping cart endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/cart")
 public class CartController {
