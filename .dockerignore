@@ -1,0 +1,14 @@
+.git
+.idea
+target
+**/target
+
+uploads
+application.yml
+application-local.yml
+.env
+
+*.iml
+*.iws
+*.ipr
+
