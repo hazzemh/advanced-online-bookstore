@@ -2,6 +2,8 @@ package com.example.bookstore.wishlist.controller;
 
 import com.example.bookstore.wishlist.dto.WishlistResponse;
 import com.example.bookstore.wishlist.service.WishlistService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Wishlist", description = "User wishlist endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/wishlist")
 public class WishlistController {

@@ -2,12 +2,16 @@ package com.example.bookstore.admin.controller;
 
 import com.example.bookstore.admin.dto.*;
 import com.example.bookstore.admin.service.AdminAnalyticsService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
 
+@Tag(name = "Admin - Analytics", description = "Admin dashboard analytics endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/admin/analytics")
 public class AdminAnalyticsController {

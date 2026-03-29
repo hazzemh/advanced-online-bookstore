@@ -6,12 +6,15 @@ import com.example.bookstore.user.dto.LoginRequest;
 import com.example.bookstore.user.dto.RegisterRequest;
 import com.example.bookstore.user.entity.User;
 import com.example.bookstore.user.service.UserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Auth", description = "Register and login (JWT).")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -27,14 +30,14 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<AuthResponse> register(@RequestBody @Valid RegisterRequest request) {
         User user = userService.register(request);
         String token = jwtService.generateToken(user.getEmail());
         return ResponseEntity.ok(new AuthResponse(token));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.email(), request.password()));
         String token = jwtService.generateToken(authentication.getName());

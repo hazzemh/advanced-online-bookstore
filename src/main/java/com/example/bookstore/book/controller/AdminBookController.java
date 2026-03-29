@@ -5,6 +5,8 @@ import com.example.bookstore.book.dto.CreateBookRequest;
 import com.example.bookstore.book.dto.UpdateBookRequest;
 import com.example.bookstore.book.service.BookService;
 import com.example.bookstore.common.service.FileService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -15,9 +17,12 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
+import jakarta.validation.Valid;
 
 import java.util.UUID;
 
+@Tag(name = "Admin - Books", description = "Admin inventory management endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/admin/books")
 public class AdminBookController {
@@ -31,7 +36,7 @@ public class AdminBookController {
     }
 
     @PostMapping
-    public ResponseEntity<BookResponse> createBook(@RequestBody CreateBookRequest request) {
+    public ResponseEntity<BookResponse> createBook(@RequestBody @Valid CreateBookRequest request) {
         BookResponse response = bookService.createBook(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -39,7 +44,7 @@ public class AdminBookController {
     @PutMapping("/{bookId}")
     public ResponseEntity<BookResponse> updateBook(
             @PathVariable UUID bookId,
-            @RequestBody UpdateBookRequest request) {
+            @RequestBody @Valid UpdateBookRequest request) {
         BookResponse response = bookService.updateBook(bookId, request);
         return ResponseEntity.ok(response);
     }
