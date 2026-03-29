@@ -7,6 +7,15 @@ This repo includes a Docker setup for local dev that runs:
 
 ## Start
 
+Create a local `.env` file (git-ignored) first:
+
+```bash
+# Windows PowerShell
+Copy-Item .env.example .env
+```
+
+Edit `.env` and set at least `JWT_SECRET` (and any optional keys you use).
+
 ```bash
 docker compose up --build
 ```
@@ -42,4 +51,3 @@ Important vars:
 Optional integrations:
 - Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CURRENCY`
 - Google OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
-
