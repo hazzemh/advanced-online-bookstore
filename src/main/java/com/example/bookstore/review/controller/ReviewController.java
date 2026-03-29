@@ -4,6 +4,8 @@ import com.example.bookstore.review.dto.CreateReviewRequest;
 import com.example.bookstore.review.dto.UpdateReviewRequest;
 import com.example.bookstore.review.dto.ReviewResponse;
 import com.example.bookstore.review.service.ReviewService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -12,8 +14,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import java.util.UUID;
 
+@Tag(name = "Reviews", description = "Book reviews and ratings endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/reviews")
 public class ReviewController {
@@ -30,7 +35,7 @@ public class ReviewController {
     @PostMapping
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ReviewResponse> createReview(
-            @RequestBody CreateReviewRequest request,
+            @RequestBody @Valid CreateReviewRequest request,
             Authentication authentication) {
         UUID userId = UUID.fromString(authentication.getName());
         ReviewResponse response = reviewService.createReview(request, userId);
@@ -115,7 +120,7 @@ public class ReviewController {
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ReviewResponse> updateReview(
             @PathVariable UUID reviewId,
-            @RequestBody UpdateReviewRequest request,
+            @RequestBody @Valid UpdateReviewRequest request,
             Authentication authentication) {
         UUID userId = UUID.fromString(authentication.getName());
         ReviewResponse response = reviewService.updateReview(reviewId, request, userId);

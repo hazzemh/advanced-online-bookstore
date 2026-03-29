@@ -3,6 +3,9 @@ package com.example.bookstore.order.controller;
 import com.example.bookstore.order.dto.CreateOrderRequest;
 import com.example.bookstore.order.dto.OrderResponse;
 import com.example.bookstore.order.service.OrderService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Orders", description = "User order lifecycle endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -25,7 +30,7 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(
-            @RequestBody CreateOrderRequest request,
+            @RequestBody @Valid CreateOrderRequest request,
             Authentication authentication
     ) {
         OrderResponse response = orderService.createOrder(authentication.getName(), request);

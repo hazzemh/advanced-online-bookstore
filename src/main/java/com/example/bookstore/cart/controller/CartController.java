@@ -4,13 +4,18 @@ import com.example.bookstore.cart.dto.AddToCartRequest;
 import com.example.bookstore.cart.dto.CartResponse;
 import com.example.bookstore.cart.dto.UpdateCartItemQuantityRequest;
 import com.example.bookstore.cart.service.CartService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.UUID;
 
+@Tag(name = "Cart", description = "Shopping cart endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/cart")
 public class CartController {
@@ -29,7 +34,7 @@ public class CartController {
 
     @PostMapping("/items")
     public ResponseEntity<CartResponse> addToCart(
-            @RequestBody AddToCartRequest request,
+            @RequestBody @Valid AddToCartRequest request,
             Authentication authentication
     ) {
         CartResponse response = cartService.addToCart(authentication.getName(), request);
@@ -39,7 +44,7 @@ public class CartController {
     @PutMapping("/items/{itemId}")
     public ResponseEntity<CartResponse> updateCartItemQuantity(
             @PathVariable UUID itemId,
-            @RequestBody UpdateCartItemQuantityRequest request,
+            @RequestBody @Valid UpdateCartItemQuantityRequest request,
             Authentication authentication
     ) {
         CartResponse response = cartService.updateItemQuantity(authentication.getName(), itemId, request);

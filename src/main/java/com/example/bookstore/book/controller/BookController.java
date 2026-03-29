@@ -2,6 +2,7 @@ package com.example.bookstore.book.controller;
 
 import com.example.bookstore.book.dto.BookResponse;
 import com.example.bookstore.book.service.BookService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+@Tag(name = "Books", description = "Public book catalog endpoints (browse/search/filter).")
 @RestController
 @RequestMapping("/api/books")
 public class BookController {

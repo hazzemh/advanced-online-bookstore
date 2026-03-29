@@ -1,11 +1,13 @@
 package com.example.bookstore.payment.controller;
 
 import com.example.bookstore.payment.service.StripePaymentService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Tag(name = "Payments", description = "Payment webhooks (Stripe).")
 @RestController
 @RequestMapping("/api/payments/stripe")
 public class StripeWebhookController {

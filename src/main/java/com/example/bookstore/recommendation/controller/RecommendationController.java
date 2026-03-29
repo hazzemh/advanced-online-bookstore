@@ -4,12 +4,16 @@ import com.example.bookstore.book.dto.BookResponse;
 import com.example.bookstore.recommendation.dto.UserPreferenceResponse;
 import com.example.bookstore.recommendation.service.RecommendationService;
 import com.example.bookstore.recommendation.service.RecommendationStrategy;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Tag(name = "Recommendations", description = "Personalized recommendations and preference profile endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/recommendations")
 public class RecommendationController {
