@@ -1,7 +1,7 @@
 package com.example.bookstore.order.service;
 
 import com.example.bookstore.book.entity.Book;
-import com.example.bookstore.book.repository.BookRepository;
+import com.example.bookstore.book.service.BookService;
 import com.example.bookstore.order.dto.CreateOrderItemRequest;
 import com.example.bookstore.order.dto.CreateOrderRequest;
 import com.example.bookstore.order.dto.OrderResponse;
@@ -13,7 +13,7 @@ import com.example.bookstore.order.event.OrderStatusChangedEvent;
 import com.example.bookstore.order.mapper.OrderMapper;
 import com.example.bookstore.order.repository.OrderRepository;
 import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.repository.UserRepository;
+import com.example.bookstore.user.service.UserService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,21 +33,21 @@ public class OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepository;
-    private final UserRepository userRepository;
-    private final BookRepository bookRepository;
+    private final UserService userService;
+    private final BookService bookService;
     private final OrderMapper orderMapper;
     private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(
             OrderRepository orderRepository,
-            UserRepository userRepository,
-            BookRepository bookRepository,
+            UserService userService,
+            BookService bookService,
             OrderMapper orderMapper,
             ApplicationEventPublisher eventPublisher
     ) {
         this.orderRepository = orderRepository;
-        this.userRepository = userRepository;
-        this.bookRepository = bookRepository;
+        this.userService = userService;
+        this.bookService = bookService;
         this.orderMapper = orderMapper;
         this.eventPublisher = eventPublisher;
     }
@@ -57,7 +57,7 @@ public class OrderService {
             throw new IllegalArgumentException("Order items are required");
         }
 
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         log.info("Creating order for userId={} itemsCount={}", user.getId(), request.items().size());
 
         List<CreateOrderItemRequest> items = mergeDuplicateItems(request.items());
@@ -88,8 +88,7 @@ public class OrderService {
 
             subtotal = subtotal.add(lineTotal);
 
-            book.setStockQuantity(book.getStockQuantity() - quantity);
-            bookRepository.save(book);
+            bookService.decrementStock(book.getId(), quantity);
         }
         order.setSubtotal(subtotal);
 
@@ -101,21 +100,21 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public Page<OrderResponse> getMyOrders(String userEmail, Pageable pageable) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         return orderRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable)
                 .map(orderMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
     public OrderResponse getMyOrder(String userEmail, UUID orderId) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         Order order = orderRepository.findByIdAndUserId(orderId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         return orderMapper.toResponse(order);
     }
 
     public OrderResponse cancelMyOrder(String userEmail, UUID orderId) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         Order order = orderRepository.findByIdAndUserId(orderId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -182,14 +181,6 @@ public class OrderService {
         return orderMapper.toResponse(saved);
     }
 
-    private User getUserByEmail(String email) {
-        if (email == null || email.isBlank()) {
-            throw new RuntimeException("Unauthenticated");
-        }
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
-
     private List<CreateOrderItemRequest> mergeDuplicateItems(List<CreateOrderItemRequest> items) {
         Map<UUID, Integer> quantities = new LinkedHashMap<>();
         for (CreateOrderItemRequest item : items) {
@@ -210,11 +201,7 @@ public class OrderService {
     private Map<UUID, Book> loadBooks(List<CreateOrderItemRequest> items) {
         Map<UUID, Book> bookMap = new HashMap<>();
         for (CreateOrderItemRequest item : items) {
-            Book book = bookRepository.findById(item.bookId())
-                    .orElseThrow(() -> new RuntimeException("Book not found"));
-            if (!Boolean.TRUE.equals(book.getIsActive())) {
-                throw new RuntimeException("Book is not available");
-            }
+            Book book = bookService.requireActiveBookEntity(item.bookId());
             bookMap.put(book.getId(), book);
         }
         return bookMap;
@@ -235,14 +222,11 @@ public class OrderService {
 
     private void restoreStock(Order order) {
         for (OrderItem item : order.getItems()) {
-            Book book = bookRepository.findById(item.getBook().getId())
-                    .orElse(null);
-            if (book == null) {
+            try {
+                bookService.incrementStock(item.getBook().getId(), item.getQuantity());
+            } catch (RuntimeException ex) {
                 continue;
             }
-            Integer current = book.getStockQuantity() == null ? 0 : book.getStockQuantity();
-            book.setStockQuantity(current + item.getQuantity());
-            bookRepository.save(book);
         }
     }
 }

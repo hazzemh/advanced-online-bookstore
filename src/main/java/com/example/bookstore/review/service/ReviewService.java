@@ -7,9 +7,9 @@ import com.example.bookstore.review.dto.ReviewResponse;
 import com.example.bookstore.review.repository.ReviewRepository;
 import com.example.bookstore.review.mapper.ReviewMapper;
 import com.example.bookstore.book.entity.Book;
-import com.example.bookstore.book.repository.BookRepository;
+import com.example.bookstore.book.service.BookService;
 import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.repository.UserRepository;
+import com.example.bookstore.user.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,17 +22,17 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final ReviewMapper reviewMapper;
-    private final BookRepository bookRepository;
-    private final UserRepository userRepository;
+    private final BookService bookService;
+    private final UserService userService;
 
     public ReviewService(ReviewRepository reviewRepository,
                         ReviewMapper reviewMapper,
-                        BookRepository bookRepository,
-                        UserRepository userRepository) {
+                        BookService bookService,
+                        UserService userService) {
         this.reviewRepository = reviewRepository;
         this.reviewMapper = reviewMapper;
-        this.bookRepository = bookRepository;
-        this.userRepository = userRepository;
+        this.bookService = bookService;
+        this.userService = userService;
     }
 
     /**
@@ -49,11 +49,8 @@ public class ReviewService {
             throw new RuntimeException("User has already reviewed this book");
         }
 
-        Book book = bookRepository.findById(request.bookId())
-                .orElseThrow(() -> new RuntimeException("Book not found"));
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Book book = bookService.requireActiveBookEntity(request.bookId());
+        User user = userService.requireUserById(userId);
 
         Review review = Review.builder()
                 .book(book)
@@ -122,8 +119,7 @@ public class ReviewService {
      */
     public Page<ReviewResponse> getBookReviews(UUID bookId, Pageable pageable) {
         // Verify book exists
-        bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("Book not found"));
+        bookService.getBookEntityById(bookId);
 
         return reviewRepository.findByBookId(bookId, pageable)
                 .map(reviewMapper::mapToResponse);
@@ -134,8 +130,7 @@ public class ReviewService {
      */
     public Page<ReviewResponse> getUserReviews(UUID userId, Pageable pageable) {
         // Verify user exists
-        userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        userService.requireUserById(userId);
 
         return reviewRepository.findByUserId(userId, pageable)
                 .map(reviewMapper::mapToResponse);
@@ -158,8 +153,7 @@ public class ReviewService {
             throw new IllegalArgumentException("Min rating must be between 1 and 5");
         }
 
-        bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("Book not found"));
+        bookService.getBookEntityById(bookId);
 
         return reviewRepository.findByBookIdAndRatingGreaterThan(bookId, minRating, pageable)
                 .map(reviewMapper::mapToResponse);
@@ -170,16 +164,13 @@ public class ReviewService {
      */
     @Transactional
     public void updateBookAverageRating(UUID bookId) {
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("Book not found"));
-
         Double averageRating = reviewRepository.getAverageRatingByBookId(bookId);
         Long reviewCount = reviewRepository.countByBookId(bookId);
-
-        book.setAverageRating(averageRating != null ? averageRating : 0.0);
-        book.setTotalReviews(reviewCount.intValue());
-
-        bookRepository.save(book);
+        bookService.updateRatingStats(
+                bookId,
+                averageRating != null ? averageRating : 0.0,
+                reviewCount == null ? 0 : reviewCount.intValue()
+        );
     }
 
     /**

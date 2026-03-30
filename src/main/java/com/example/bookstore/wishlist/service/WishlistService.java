@@ -1,9 +1,9 @@
 package com.example.bookstore.wishlist.service;
 
 import com.example.bookstore.book.entity.Book;
-import com.example.bookstore.book.repository.BookRepository;
+import com.example.bookstore.book.service.BookService;
 import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.repository.UserRepository;
+import com.example.bookstore.user.service.UserService;
 import com.example.bookstore.wishlist.dto.WishlistResponse;
 import com.example.bookstore.wishlist.entity.WishlistItem;
 import com.example.bookstore.wishlist.mapper.WishlistMapper;
@@ -21,32 +21,27 @@ public class WishlistService {
 
     private final WishlistRepository wishlistRepository;
     private final WishlistMapper wishlistMapper;
-    private final UserRepository userRepository;
-    private final BookRepository bookRepository;
+    private final UserService userService;
+    private final BookService bookService;
 
     public WishlistService(WishlistRepository wishlistRepository,
                            WishlistMapper wishlistMapper,
-                           UserRepository userRepository,
-                           BookRepository bookRepository) {
+                           UserService userService,
+                           BookService bookService) {
         this.wishlistRepository = wishlistRepository;
         this.wishlistMapper = wishlistMapper;
-        this.userRepository = userRepository;
-        this.bookRepository = bookRepository;
+        this.userService = userService;
+        this.bookService = bookService;
     }
 
     public WishlistResponse addBookToWishlist(UUID bookId, String userEmail) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
 
         if (wishlistRepository.existsByUserIdAndBookId(user.getId(), bookId)) {
             throw new RuntimeException("Book is already in wishlist");
         }
 
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("Book not found"));
-
-        if (!Boolean.TRUE.equals(book.getIsActive())) {
-            throw new RuntimeException("Book is not available");
-        }
+        Book book = bookService.requireActiveBookEntity(bookId);
 
         WishlistItem wishlistItem = WishlistItem.builder()
                 .user(user)
@@ -58,13 +53,13 @@ public class WishlistService {
     }
 
     public Page<WishlistResponse> getUserWishlist(String userEmail, Pageable pageable) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         return wishlistRepository.findByUserIdOrderByAddedAtDesc(user.getId(), pageable)
                 .map(wishlistMapper::mapToResponse);
     }
 
     public void removeBookFromWishlist(UUID bookId, String userEmail) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
 
         WishlistItem wishlistItem = wishlistRepository.findByUserIdAndBookId(user.getId(), bookId)
                 .orElseThrow(() -> new RuntimeException("Book is not in wishlist"));
@@ -73,12 +68,7 @@ public class WishlistService {
     }
 
     public boolean isBookInWishlist(UUID bookId, String userEmail) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         return wishlistRepository.existsByUserIdAndBookId(user.getId(), bookId);
-    }
-
-    private User getUserByEmail(String userEmail) {
-        return userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
     }
 }

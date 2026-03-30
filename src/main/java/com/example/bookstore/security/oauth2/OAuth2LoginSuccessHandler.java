@@ -1,14 +1,11 @@
 package com.example.bookstore.security.oauth2;
 
 import com.example.bookstore.security.jwt.JwtService;
-import com.example.bookstore.user.entity.Role;
-import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.repository.UserRepository;
+import com.example.bookstore.user.service.UserService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -17,22 +14,18 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.UUID;
 
 @Component
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UserService userService;
     private final JwtService jwtService;
 
     public OAuth2LoginSuccessHandler(
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
+            UserService userService,
             JwtService jwtService
     ) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.userService = userService;
         this.jwtService = jwtService;
     }
 
@@ -58,22 +51,9 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         }
 
         // Provision user if first time logging in with Google.
-        userRepository.findByEmail(email).orElseGet(() -> {
-            String givenName = asString(attributes.get("given_name"));
-            String familyName = asString(attributes.get("family_name"));
-
-            // Password is required by our current schema; generate a random one and store it encoded.
-            String randomPassword = "GOOGLE-" + UUID.randomUUID();
-
-            User user = User.builder()
-                    .email(email)
-                    .password(passwordEncoder.encode(randomPassword))
-                    .firstName(givenName)
-                    .lastName(familyName)
-                    .role(Role.USER)
-                    .build();
-            return userRepository.save(user);
-        });
+        String givenName = asString(attributes.get("given_name"));
+        String familyName = asString(attributes.get("family_name"));
+        userService.findOrCreateOauthUser(email, givenName, familyName);
 
         String token = jwtService.generateToken(email);
 
