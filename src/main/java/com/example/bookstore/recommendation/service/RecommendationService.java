@@ -2,7 +2,7 @@ package com.example.bookstore.recommendation.service;
 
 import com.example.bookstore.book.dto.BookResponse;
 import com.example.bookstore.book.entity.Book;
-import com.example.bookstore.book.repository.BookRepository;
+import com.example.bookstore.book.service.BookService;
 import com.example.bookstore.cart.repository.CartItemRepository;
 import com.example.bookstore.order.entity.OrderStatus;
 import com.example.bookstore.order.repository.OrderItemRepository;
@@ -10,7 +10,7 @@ import com.example.bookstore.recommendation.dto.PreferenceStat;
 import com.example.bookstore.recommendation.dto.UserPreferenceResponse;
 import com.example.bookstore.review.repository.ReviewRepository;
 import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.repository.UserRepository;
+import com.example.bookstore.user.service.UserService;
 import com.example.bookstore.wishlist.repository.WishlistRepository;
 import com.example.bookstore.config.CacheConfig;
 import org.springframework.stereotype.Service;
@@ -30,23 +30,23 @@ public class RecommendationService {
     private static final EnumSet<OrderStatus> POSITIVE_ORDER_STATUSES =
             EnumSet.of(OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
 
-    private final UserRepository userRepository;
-    private final BookRepository bookRepository;
+    private final UserService userService;
+    private final BookService bookService;
     private final ReviewRepository reviewRepository;
     private final WishlistRepository wishlistRepository;
     private final CartItemRepository cartItemRepository;
     private final OrderItemRepository orderItemRepository;
 
     public RecommendationService(
-            UserRepository userRepository,
-            BookRepository bookRepository,
+            UserService userService,
+            BookService bookService,
             ReviewRepository reviewRepository,
             WishlistRepository wishlistRepository,
             CartItemRepository cartItemRepository,
             OrderItemRepository orderItemRepository
     ) {
-        this.userRepository = userRepository;
-        this.bookRepository = bookRepository;
+        this.userService = userService;
+        this.bookService = bookService;
         this.reviewRepository = reviewRepository;
         this.wishlistRepository = wishlistRepository;
         this.cartItemRepository = cartItemRepository;
@@ -123,8 +123,7 @@ public class RecommendationService {
                 .map(Map.Entry::getKey)
                 .toList();
 
-        Map<UUID, Book> byId = bookRepository.findAllById(topIds).stream()
-                .collect(Collectors.toMap(Book::getId, b -> b));
+        Map<UUID, Book> byId = bookService.loadBooksById(topIds);
 
         // Preserve score ordering.
         List<BookResponse> result = new ArrayList<>(topIds.size());
@@ -175,7 +174,7 @@ public class RecommendationService {
             return;
         }
         int w = Math.max(1, weight);
-        for (Book b : bookRepository.findAllById(bookIds)) {
+        for (Book b : bookService.loadBooksById(bookIds).values()) {
             if (!Boolean.TRUE.equals(b.getIsActive())) {
                 continue;
             }
@@ -200,7 +199,7 @@ public class RecommendationService {
         }
 
         Map<UUID, Double> scores = new HashMap<>();
-        for (Book b : bookRepository.findAll()) {
+        for (Book b : bookService.getAllBookEntities()) {
             if (!Boolean.TRUE.equals(b.getIsActive())) {
                 continue;
             }
@@ -302,8 +301,7 @@ public class RecommendationService {
 
         // Add a tiny global-quality boost to help ordering ties.
         if (!candidateScores.isEmpty()) {
-            Map<UUID, Book> byId = bookRepository.findAllById(candidateScores.keySet()).stream()
-                    .collect(Collectors.toMap(Book::getId, b -> b));
+            Map<UUID, Book> byId = bookService.loadBooksById(candidateScores.keySet());
             for (Map.Entry<UUID, Double> e : new ArrayList<>(candidateScores.entrySet())) {
                 Book b = byId.get(e.getKey());
                 if (b == null || !Boolean.TRUE.equals(b.getIsActive())) {
@@ -334,7 +332,7 @@ public class RecommendationService {
     }
 
     private List<BookResponse> fallbackTopRated(Set<UUID> excludedBookIds, int limit) {
-        List<Book> all = bookRepository.findAll();
+        List<Book> all = bookService.getAllBookEntities();
         return all.stream()
                 .filter(b -> Boolean.TRUE.equals(b.getIsActive()))
                 .filter(b -> b.getStockQuantity() == null || b.getStockQuantity() > 0)
@@ -377,11 +375,7 @@ public class RecommendationService {
     }
 
     private User getUserByEmail(String email) {
-        if (email == null || email.isBlank()) {
-            throw new RuntimeException("Unauthenticated");
-        }
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        return userService.requireUserByEmail(email);
     }
 
     private BookResponse mapToResponse(Book book) {

@@ -13,9 +13,13 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -203,6 +207,123 @@ public class BookService {
     public Book getBookEntityById(UUID bookId) {
         return bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
+    }
+
+    /**
+     * Cross-module helper: load a book entity and ensure it's active/available.
+     * Prefer this over other modules using BookRepository directly.
+     */
+    public Book requireActiveBookEntity(UUID bookId) {
+        Book book = getBookEntityById(bookId);
+        if (!Boolean.TRUE.equals(book.getIsActive())) {
+            throw new RuntimeException("Book is not available");
+        }
+        return book;
+    }
+
+    /**
+     * Cross-module helper: bulk load books by id. Missing ids are omitted.
+     */
+    public Map<UUID, Book> loadBooksById(Collection<UUID> bookIds) {
+        if (bookIds == null || bookIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Book> byId = new HashMap<>();
+        for (Book b : bookRepository.findAllById(bookIds)) {
+            if (b != null && b.getId() != null) {
+                byId.put(b.getId(), b);
+            }
+        }
+        return byId;
+    }
+
+    /**
+     * Cross-module helper: persist a Book entity (e.g., stock updates from OrderService).
+     */
+    public Book saveBookEntity(Book book) {
+        return bookRepository.save(book);
+    }
+
+    /**
+     * Cross-module helper for recommendation fallback logic.
+     */
+    public List<Book> getAllBookEntities() {
+        return bookRepository.findAll();
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.BOOK_BY_ID_CACHE, key = "#bookId"),
+            @CacheEvict(value = CacheConfig.BOOK_LIST_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_BY_GENRE_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_SEARCH_TITLE_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_SEARCH_AUTHOR_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_TOP_RATED_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_AVAILABLE_CACHE, allEntries = true)
+    })
+    @Transactional
+    public Book decrementStock(UUID bookId, int quantity) {
+        if (bookId == null) {
+            throw new IllegalArgumentException("bookId is required");
+        }
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("quantity must be >= 1");
+        }
+        Book book = requireActiveBookEntity(bookId);
+        Integer current = book.getStockQuantity() == null ? 0 : book.getStockQuantity();
+        if (current <= 0) {
+            throw new IllegalArgumentException("Book is out of stock");
+        }
+        if (quantity > current) {
+            throw new IllegalArgumentException("Requested quantity exceeds available stock");
+        }
+        book.setStockQuantity(current - quantity);
+        return bookRepository.save(book);
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.BOOK_BY_ID_CACHE, key = "#bookId"),
+            @CacheEvict(value = CacheConfig.BOOK_LIST_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_BY_GENRE_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_SEARCH_TITLE_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_SEARCH_AUTHOR_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_TOP_RATED_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_AVAILABLE_CACHE, allEntries = true)
+    })
+    @Transactional
+    public Book incrementStock(UUID bookId, int quantity) {
+        if (bookId == null) {
+            throw new IllegalArgumentException("bookId is required");
+        }
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("quantity must be >= 1");
+        }
+        Book book = getBookEntityById(bookId);
+        Integer current = book.getStockQuantity() == null ? 0 : book.getStockQuantity();
+        book.setStockQuantity(current + quantity);
+        return bookRepository.save(book);
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.BOOK_BY_ID_CACHE, key = "#bookId"),
+            @CacheEvict(value = CacheConfig.BOOK_LIST_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_BY_GENRE_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_SEARCH_TITLE_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_SEARCH_AUTHOR_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_TOP_RATED_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.BOOK_AVAILABLE_CACHE, allEntries = true)
+    })
+    @Transactional
+    public Book updateRatingStats(UUID bookId, double averageRating, int totalReviews) {
+        if (bookId == null) {
+            throw new IllegalArgumentException("bookId is required");
+        }
+        if (totalReviews < 0) {
+            throw new IllegalArgumentException("totalReviews must be >= 0");
+        }
+        Book book = getBookEntityById(bookId);
+        book.setAverageRating(averageRating);
+        book.setTotalReviews(totalReviews);
+        return bookRepository.save(book);
     }
 
     // Image Upload Operations

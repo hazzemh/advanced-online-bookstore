@@ -1,7 +1,7 @@
 package com.example.bookstore.cart.service;
 
 import com.example.bookstore.book.entity.Book;
-import com.example.bookstore.book.repository.BookRepository;
+import com.example.bookstore.book.service.BookService;
 import com.example.bookstore.cart.dto.AddToCartRequest;
 import com.example.bookstore.cart.dto.CartResponse;
 import com.example.bookstore.cart.dto.UpdateCartItemQuantityRequest;
@@ -11,7 +11,7 @@ import com.example.bookstore.cart.mapper.CartMapper;
 import com.example.bookstore.cart.repository.CartItemRepository;
 import com.example.bookstore.cart.repository.CartRepository;
 import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.repository.UserRepository;
+import com.example.bookstore.user.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,26 +23,26 @@ public class CartService {
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
-    private final UserRepository userRepository;
-    private final BookRepository bookRepository;
+    private final UserService userService;
+    private final BookService bookService;
     private final CartMapper cartMapper;
 
     public CartService(
             CartRepository cartRepository,
             CartItemRepository cartItemRepository,
-            UserRepository userRepository,
-            BookRepository bookRepository,
+            UserService userService,
+            BookService bookService,
             CartMapper cartMapper
     ) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
-        this.userRepository = userRepository;
-        this.bookRepository = bookRepository;
+        this.userService = userService;
+        this.bookService = bookService;
         this.cartMapper = cartMapper;
     }
 
     public CartResponse getMyCart(String userEmail) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         return cartRepository.findByUserId(user.getId())
                 .map(cartMapper::toResponse)
                 .orElseGet(() -> cartMapper.empty(null));
@@ -60,8 +60,8 @@ public class CartService {
             throw new IllegalArgumentException("Quantity must be at least 1");
         }
 
-        User user = getUserByEmail(userEmail);
-        Book book = getActiveBookById(request.bookId());
+        User user = userService.requireUserByEmail(userEmail);
+        Book book = bookService.requireActiveBookEntity(request.bookId());
 
         Cart cart = cartRepository.findByUserId(user.getId())
                 .orElseGet(() -> cartRepository.save(Cart.builder().user(user).build()));
@@ -101,7 +101,7 @@ public class CartService {
             throw new IllegalArgumentException("Quantity is required");
         }
 
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         CartItem item = cartItemRepository.findByIdAndCartUserId(itemId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Cart item not found"));
 
@@ -114,7 +114,7 @@ public class CartService {
             return cartMapper.toResponse(cart);
         }
 
-        Book book = getActiveBookById(item.getBook().getId());
+        Book book = bookService.requireActiveBookEntity(item.getBook().getId());
         validateStock(book, quantity);
         item.setQuantity(quantity);
         item.setUnitPrice(book.getPrice());
@@ -128,7 +128,7 @@ public class CartService {
         if (itemId == null) {
             throw new IllegalArgumentException("itemId is required");
         }
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         CartItem item = cartItemRepository.findByIdAndCartUserId(itemId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Cart item not found"));
         Cart cart = item.getCart();
@@ -138,30 +138,13 @@ public class CartService {
     }
 
     public void clearCart(String userEmail) {
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         Cart cart = cartRepository.findByUserId(user.getId()).orElse(null);
         if (cart == null) {
             return;
         }
         cart.getItems().clear();
         cartRepository.save(cart);
-    }
-
-    private User getUserByEmail(String email) {
-        if (email == null || email.isBlank()) {
-            throw new RuntimeException("Unauthenticated");
-        }
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
-
-    private Book getActiveBookById(UUID bookId) {
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("Book not found"));
-        if (!Boolean.TRUE.equals(book.getIsActive())) {
-            throw new RuntimeException("Book is not available");
-        }
-        return book;
     }
 
     private void validateStock(Book book, int quantity) {
