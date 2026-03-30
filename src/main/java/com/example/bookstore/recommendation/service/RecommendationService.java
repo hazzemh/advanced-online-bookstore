@@ -3,15 +3,15 @@ package com.example.bookstore.recommendation.service;
 import com.example.bookstore.book.dto.BookResponse;
 import com.example.bookstore.book.entity.Book;
 import com.example.bookstore.book.service.BookService;
-import com.example.bookstore.cart.repository.CartItemRepository;
+import com.example.bookstore.cart.service.CartSignalService;
 import com.example.bookstore.order.entity.OrderStatus;
-import com.example.bookstore.order.repository.OrderItemRepository;
+import com.example.bookstore.order.service.OrderSignalService;
 import com.example.bookstore.recommendation.dto.PreferenceStat;
 import com.example.bookstore.recommendation.dto.UserPreferenceResponse;
-import com.example.bookstore.review.repository.ReviewRepository;
+import com.example.bookstore.review.service.ReviewSignalService;
 import com.example.bookstore.user.entity.User;
 import com.example.bookstore.user.service.UserService;
-import com.example.bookstore.wishlist.repository.WishlistRepository;
+import com.example.bookstore.wishlist.service.WishlistSignalService;
 import com.example.bookstore.config.CacheConfig;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,25 +32,25 @@ public class RecommendationService {
 
     private final UserService userService;
     private final BookService bookService;
-    private final ReviewRepository reviewRepository;
-    private final WishlistRepository wishlistRepository;
-    private final CartItemRepository cartItemRepository;
-    private final OrderItemRepository orderItemRepository;
+    private final ReviewSignalService reviewSignalService;
+    private final WishlistSignalService wishlistSignalService;
+    private final CartSignalService cartSignalService;
+    private final OrderSignalService orderSignalService;
 
     public RecommendationService(
             UserService userService,
             BookService bookService,
-            ReviewRepository reviewRepository,
-            WishlistRepository wishlistRepository,
-            CartItemRepository cartItemRepository,
-            OrderItemRepository orderItemRepository
+            ReviewSignalService reviewSignalService,
+            WishlistSignalService wishlistSignalService,
+            CartSignalService cartSignalService,
+            OrderSignalService orderSignalService
     ) {
         this.userService = userService;
         this.bookService = bookService;
-        this.reviewRepository = reviewRepository;
-        this.wishlistRepository = wishlistRepository;
-        this.cartItemRepository = cartItemRepository;
-        this.orderItemRepository = orderItemRepository;
+        this.reviewSignalService = reviewSignalService;
+        this.wishlistSignalService = wishlistSignalService;
+        this.cartSignalService = cartSignalService;
+        this.orderSignalService = orderSignalService;
     }
 
     @Cacheable(
@@ -67,14 +67,14 @@ public class RecommendationService {
         UUID userId = user.getId();
 
         Set<UUID> purchasedBookIds = new HashSet<>(
-                orderItemRepository.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES)
+                orderSignalService.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES)
         );
-        Set<UUID> wishlistBookIds = new HashSet<>(wishlistRepository.findBookIdsByUserId(userId));
-        Set<UUID> cartBookIds = new HashSet<>(cartItemRepository.findBookIdsInUserCart(userId));
-        Set<UUID> reviewedBookIds = new HashSet<>(reviewRepository.findReviewedBookIdsByUserId(userId));
+        Set<UUID> wishlistBookIds = new HashSet<>(wishlistSignalService.findBookIdsByUserId(userId));
+        Set<UUID> cartBookIds = new HashSet<>(cartSignalService.findBookIdsInUserCart(userId));
+        Set<UUID> reviewedBookIds = new HashSet<>(reviewSignalService.findReviewedBookIdsByUserId(userId));
 
-        Set<UUID> positiveReviewBookIds = new HashSet<>(reviewRepository.findBookIdsByUserIdAndMinRating(userId, POSITIVE_REVIEW_RATING));
-        Set<UUID> negativeReviewBookIds = new HashSet<>(reviewRepository.findBookIdsByUserIdAndMaxRating(userId, NEGATIVE_REVIEW_RATING));
+        Set<UUID> positiveReviewBookIds = new HashSet<>(reviewSignalService.findBookIdsByUserIdAndMinRating(userId, POSITIVE_REVIEW_RATING));
+        Set<UUID> negativeReviewBookIds = new HashSet<>(reviewSignalService.findBookIdsByUserIdAndMaxRating(userId, NEGATIVE_REVIEW_RATING));
 
         Set<UUID> positiveSignalBookIds = new HashSet<>();
         positiveSignalBookIds.addAll(purchasedBookIds);
@@ -153,10 +153,10 @@ public class RecommendationService {
         UUID userId = user.getId();
 
         Set<UUID> positiveSignalBookIds = new HashSet<>();
-        positiveSignalBookIds.addAll(orderItemRepository.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES));
-        positiveSignalBookIds.addAll(wishlistRepository.findBookIdsByUserId(userId));
-        positiveSignalBookIds.addAll(cartItemRepository.findBookIdsInUserCart(userId));
-        positiveSignalBookIds.addAll(reviewRepository.findBookIdsByUserIdAndMinRating(userId, POSITIVE_REVIEW_RATING));
+        positiveSignalBookIds.addAll(orderSignalService.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES));
+        positiveSignalBookIds.addAll(wishlistSignalService.findBookIdsByUserId(userId));
+        positiveSignalBookIds.addAll(cartSignalService.findBookIdsInUserCart(userId));
+        positiveSignalBookIds.addAll(reviewSignalService.findBookIdsByUserIdAndMinRating(userId, POSITIVE_REVIEW_RATING));
 
         Map<String, Integer> genrePrefs = new HashMap<>();
         Map<String, Integer> authorPrefs = new HashMap<>();
@@ -234,10 +234,10 @@ public class RecommendationService {
 
     private Map<UUID, Double> collaborativeScores(UUID userId, Set<UUID> excludedBookIds) {
         Set<UUID> myLikes = new HashSet<>();
-        myLikes.addAll(orderItemRepository.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES));
-        myLikes.addAll(wishlistRepository.findBookIdsByUserId(userId));
-        myLikes.addAll(reviewRepository.findBookIdsByUserIdAndMinRating(userId, POSITIVE_REVIEW_RATING));
-        myLikes.addAll(cartItemRepository.findBookIdsInUserCart(userId));
+        myLikes.addAll(orderSignalService.findPurchasedBookIdsByUserIdAndStatuses(userId, POSITIVE_ORDER_STATUSES));
+        myLikes.addAll(wishlistSignalService.findBookIdsByUserId(userId));
+        myLikes.addAll(reviewSignalService.findBookIdsByUserIdAndMinRating(userId, POSITIVE_REVIEW_RATING));
+        myLikes.addAll(cartSignalService.findBookIdsInUserCart(userId));
 
         if (myLikes.isEmpty()) {
             return Collections.emptyMap();
@@ -245,19 +245,19 @@ public class RecommendationService {
 
         Map<UUID, Set<UUID>> likesByUser = new HashMap<>();
 
-        for (Object[] row : orderItemRepository.findAllUserBookIdsByStatuses(POSITIVE_ORDER_STATUSES)) {
+        for (Object[] row : orderSignalService.findAllUserBookIdsByStatuses(POSITIVE_ORDER_STATUSES)) {
             UUID u = (UUID) row[0];
             UUID b = (UUID) row[1];
             likesByUser.computeIfAbsent(u, __ -> new HashSet<>()).add(b);
         }
 
-        for (Object[] row : wishlistRepository.findAllUserBookIds()) {
+        for (Object[] row : wishlistSignalService.findAllUserBookIds()) {
             UUID u = (UUID) row[0];
             UUID b = (UUID) row[1];
             likesByUser.computeIfAbsent(u, __ -> new HashSet<>()).add(b);
         }
 
-        for (Object[] row : reviewRepository.findAllUserBookIdsWithMinRating(POSITIVE_REVIEW_RATING)) {
+        for (Object[] row : reviewSignalService.findAllUserBookIdsWithMinRating(POSITIVE_REVIEW_RATING)) {
             UUID u = (UUID) row[0];
             UUID b = (UUID) row[1];
             likesByUser.computeIfAbsent(u, __ -> new HashSet<>()).add(b);

@@ -53,17 +53,14 @@ class ArchitectureTest {
     }
 
     @Test
-    void userRepositoryOnlyUsedInsideUserOrAdminAnalyticsModule() {
+    void userRepositoryOnlyUsedInsideUserModule() {
         JavaClasses classes = new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                 .importPackages(BASE);
 
         noClasses()
                 .that()
-                .resideOutsideOfPackages(
-                        BASE + ".user..",
-                        BASE + ".admin.."
-                )
+                .resideOutsideOfPackage(BASE + ".user..")
                 .should()
                 .dependOnClassesThat()
                 .resideInAPackage(BASE + ".user.repository..")
