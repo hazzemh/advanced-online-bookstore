@@ -1,13 +1,12 @@
 package com.example.bookstore.admin.service;
 
 import com.example.bookstore.admin.dto.*;
-import com.example.bookstore.cart.repository.CartItemRepository;
+import com.example.bookstore.cart.service.CartAnalyticsService;
 import com.example.bookstore.order.entity.OrderStatus;
-import com.example.bookstore.order.repository.OrderItemRepository;
-import com.example.bookstore.order.repository.OrderRepository;
-import com.example.bookstore.review.repository.ReviewRepository;
-import com.example.bookstore.user.repository.UserRepository;
-import com.example.bookstore.wishlist.repository.WishlistRepository;
+import com.example.bookstore.order.service.OrderAnalyticsService;
+import com.example.bookstore.review.service.ReviewAnalyticsService;
+import com.example.bookstore.user.service.UserAnalyticsService;
+import com.example.bookstore.wishlist.service.WishlistAnalyticsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,27 +24,24 @@ public class AdminAnalyticsService {
     private static final EnumSet<OrderStatus> REVENUE_STATUSES =
             EnumSet.of(OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
 
-    private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
-    private final UserRepository userRepository;
-    private final ReviewRepository reviewRepository;
-    private final WishlistRepository wishlistRepository;
-    private final CartItemRepository cartItemRepository;
+    private final OrderAnalyticsService orderAnalyticsService;
+    private final UserAnalyticsService userAnalyticsService;
+    private final ReviewAnalyticsService reviewAnalyticsService;
+    private final WishlistAnalyticsService wishlistAnalyticsService;
+    private final CartAnalyticsService cartAnalyticsService;
 
     public AdminAnalyticsService(
-            OrderRepository orderRepository,
-            OrderItemRepository orderItemRepository,
-            UserRepository userRepository,
-            ReviewRepository reviewRepository,
-            WishlistRepository wishlistRepository,
-            CartItemRepository cartItemRepository
+            OrderAnalyticsService orderAnalyticsService,
+            UserAnalyticsService userAnalyticsService,
+            ReviewAnalyticsService reviewAnalyticsService,
+            WishlistAnalyticsService wishlistAnalyticsService,
+            CartAnalyticsService cartAnalyticsService
     ) {
-        this.orderRepository = orderRepository;
-        this.orderItemRepository = orderItemRepository;
-        this.userRepository = userRepository;
-        this.reviewRepository = reviewRepository;
-        this.wishlistRepository = wishlistRepository;
-        this.cartItemRepository = cartItemRepository;
+        this.orderAnalyticsService = orderAnalyticsService;
+        this.userAnalyticsService = userAnalyticsService;
+        this.reviewAnalyticsService = reviewAnalyticsService;
+        this.wishlistAnalyticsService = wishlistAnalyticsService;
+        this.cartAnalyticsService = cartAnalyticsService;
     }
 
     public AnalyticsSummaryResponse getSummary(int days) {
@@ -59,13 +55,13 @@ public class AdminAnalyticsService {
 
         LocalDateTimeRange range = toLocalDateTimeRange(fromDate, toDate);
 
-        long totalUsers = userRepository.count();
-        long newUsers = userRepository.countCreatedBetween(range.from, range.to);
+        long totalUsers = userAnalyticsService.countAllUsers();
+        long newUsers = userAnalyticsService.countCreatedBetween(range.from, range.to);
 
-        long totalOrders = orderRepository.count();
-        long paidOrders = orderRepository.countByStatusIn(REVENUE_STATUSES);
+        long totalOrders = orderAnalyticsService.countAllOrders();
+        long paidOrders = orderAnalyticsService.countByStatusIn(REVENUE_STATUSES);
 
-        BigDecimal revenue = orderRepository.sumSubtotalByStatusIn(REVENUE_STATUSES);
+        BigDecimal revenue = orderAnalyticsService.sumSubtotalByStatusIn(REVENUE_STATUSES);
         if (revenue == null) {
             revenue = BigDecimal.ZERO;
         }
@@ -92,7 +88,7 @@ public class AdminAnalyticsService {
         TimeBucket b = bucket == null ? TimeBucket.DAY : bucket;
 
         LocalDateTimeRange range = toLocalDateTimeRange(r.from, r.to);
-        List<Object[]> rows = orderRepository.findCreatedAtAndSubtotalBetweenAndStatusIn(range.from, range.to, REVENUE_STATUSES);
+        List<Object[]> rows = orderAnalyticsService.findCreatedAtAndSubtotalBetweenAndStatusIn(range.from, range.to, REVENUE_STATUSES);
 
         Map<LocalDate, MutableSales> byBucket = new HashMap<>();
         for (Object[] row : rows) {
@@ -123,7 +119,7 @@ public class AdminAnalyticsService {
 
         LocalDateTimeRange range = toLocalDateTimeRange(fromDate, today);
 
-        List<Object[]> rows = orderItemRepository.sumByBookBetweenAndOrderStatusIn(range.from, range.to, REVENUE_STATUSES);
+        List<Object[]> rows = orderAnalyticsService.sumByBookBetweenAndOrderStatusIn(range.from, range.to, REVENUE_STATUSES);
 
         List<TopBookStat> stats = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
@@ -161,7 +157,7 @@ public class AdminAnalyticsService {
         LocalDate fromDate = today.minusDays(days - 1L);
 
         LocalDateTimeRange range = toLocalDateTimeRange(fromDate, today);
-        List<Object[]> rows = orderItemRepository.sumByGenreBetweenAndOrderStatusIn(range.from, range.to, REVENUE_STATUSES);
+        List<Object[]> rows = orderAnalyticsService.sumByGenreBetweenAndOrderStatusIn(range.from, range.to, REVENUE_STATUSES);
 
         List<TopGenreStat> stats = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
@@ -188,15 +184,15 @@ public class AdminAnalyticsService {
 
         LocalDateTimeRange range = toLocalDateTimeRange(r.from, r.to);
 
-        List<LocalDateTime> userCreatedAts = userRepository.findCreatedAtBetween(range.from, range.to);
+        List<LocalDateTime> userCreatedAts = userAnalyticsService.findCreatedAtBetween(range.from, range.to);
         Map<LocalDate, Long> newUsers = bucketCounts(userCreatedAts, b);
 
         // "Active" user = did any action (order/review/wishlist/cart update) in the range.
         Map<LocalDate, Set<UUID>> activeByBucket = new HashMap<>();
-        addActiveUsers(activeByBucket, orderRepository.findUserIdsAndCreatedAtBetween(range.from, range.to), b);
-        addActiveUsers(activeByBucket, reviewRepository.findUserIdsAndCreatedAtBetween(range.from, range.to), b);
-        addActiveUsers(activeByBucket, wishlistRepository.findUserIdsAndAddedAtBetween(range.from, range.to), b);
-        addActiveUsers(activeByBucket, cartItemRepository.findUserIdsAndUpdatedAtBetween(range.from, range.to), b);
+        addActiveUsers(activeByBucket, orderAnalyticsService.findUserIdsAndCreatedAtBetween(range.from, range.to), b);
+        addActiveUsers(activeByBucket, reviewAnalyticsService.findUserIdsAndCreatedAtBetween(range.from, range.to), b);
+        addActiveUsers(activeByBucket, wishlistAnalyticsService.findUserIdsAndAddedAtBetween(range.from, range.to), b);
+        addActiveUsers(activeByBucket, cartAnalyticsService.findUserIdsAndUpdatedAtBetween(range.from, range.to), b);
 
         Map<LocalDate, Long> activeCounts = new HashMap<>();
         for (Map.Entry<LocalDate, Set<UUID>> e : activeByBucket.entrySet()) {
@@ -211,10 +207,10 @@ public class AdminAnalyticsService {
 
     private long countActiveUsers(LocalDateTimeRange range) {
         Set<UUID> active = new HashSet<>();
-        active.addAll(orderRepository.findDistinctUserIdsBetween(range.from, range.to));
-        active.addAll(reviewRepository.findDistinctUserIdsBetween(range.from, range.to));
-        active.addAll(wishlistRepository.findDistinctUserIdsBetween(range.from, range.to));
-        active.addAll(cartItemRepository.findDistinctUserIdsBetween(range.from, range.to));
+        active.addAll(orderAnalyticsService.findDistinctUserIdsBetween(range.from, range.to));
+        active.addAll(reviewAnalyticsService.findDistinctUserIdsBetween(range.from, range.to));
+        active.addAll(wishlistAnalyticsService.findDistinctUserIdsBetween(range.from, range.to));
+        active.addAll(cartAnalyticsService.findDistinctUserIdsBetween(range.from, range.to));
         return active.size();
     }
 
