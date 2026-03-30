@@ -11,6 +11,7 @@ import com.example.bookstore.payment.repository.PaymentRepository;
 import com.example.bookstore.user.entity.User;
 import com.example.bookstore.user.service.UserService;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -30,13 +31,15 @@ class StripePaymentServiceUnitTest {
         OrderRepository orderRepository = mock(OrderRepository.class);
         UserService userService = mock(UserService.class);
         OrderService orderService = mock(OrderService.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         StripePaymentService service = new StripePaymentService(
                 stripeGateway,
                 paymentRepository,
                 orderRepository,
                 userService,
-                orderService
+                orderService,
+                eventPublisher
         );
         setPrivateField(service, "currency", "usd");
 

@@ -43,3 +43,11 @@ stripe:
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
   currency: ${STRIPE_CURRENCY:usd}
 
+notifications:
+  email:
+    enabled: ${NOTIFICATIONS_EMAIL_ENABLED:false}
+
+app:
+  mail:
+    from: ${APP_MAIL_FROM:no-reply@example.com}
+

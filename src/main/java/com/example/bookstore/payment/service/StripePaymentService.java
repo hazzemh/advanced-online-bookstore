@@ -8,12 +8,14 @@ import com.example.bookstore.payment.dto.CreateStripePaymentIntentResponse;
 import com.example.bookstore.payment.entity.Payment;
 import com.example.bookstore.payment.entity.PaymentProvider;
 import com.example.bookstore.payment.entity.PaymentStatus;
+import com.example.bookstore.payment.event.PaymentSucceededEvent;
 import com.example.bookstore.payment.repository.PaymentRepository;
 import com.example.bookstore.user.entity.User;
 import com.example.bookstore.user.service.UserService;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
@@ -36,6 +38,7 @@ public class StripePaymentService {
     private final OrderRepository orderRepository;
     private final UserService userService;
     private final OrderService orderService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${stripe.currency:aed}")
     private String currency;
@@ -48,13 +51,15 @@ public class StripePaymentService {
             PaymentRepository paymentRepository,
             OrderRepository orderRepository,
             UserService userService,
-            OrderService orderService
+            OrderService orderService,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.stripeGateway = stripeGateway;
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
         this.userService = userService;
         this.orderService = orderService;
+        this.eventPublisher = eventPublisher;
     }
 
     public CreateStripePaymentIntentResponse createPaymentIntentForMyOrder(String userEmail, UUID orderId) {
@@ -165,6 +170,16 @@ public class StripePaymentService {
         if (order.getStatus() != OrderStatus.PAID) {
             orderService.updateOrderStatus(orderId, OrderStatus.PAID);
         }
+
+        // Async boundary: other modules can react without StripePaymentService knowing them.
+        String userEmail = order.getUser() == null ? null : order.getUser().getEmail();
+        eventPublisher.publishEvent(new PaymentSucceededEvent(
+                orderId,
+                userEmail,
+                pi.getId(),
+                payment.getAmount(),
+                payment.getCurrency()
+        ));
         log.info("Payment succeeded orderId={} paymentIntentId={}", orderId, pi.getId());
     }
 
