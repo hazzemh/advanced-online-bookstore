@@ -1,17 +1,14 @@
 package com.example.bookstore.payment.service;
 
-import com.example.bookstore.order.entity.Order;
-import com.example.bookstore.order.entity.OrderStatus;
-import com.example.bookstore.order.repository.OrderRepository;
-import com.example.bookstore.order.service.OrderService;
+import com.example.bookstore.integration.order.OrderPaymentQuery;
+import com.example.bookstore.integration.order.OrderPaymentView;
 import com.example.bookstore.payment.dto.CreateStripePaymentIntentResponse;
 import com.example.bookstore.payment.entity.Payment;
 import com.example.bookstore.payment.entity.PaymentProvider;
 import com.example.bookstore.payment.entity.PaymentStatus;
+import com.example.bookstore.payment.event.PaymentFailedEvent;
 import com.example.bookstore.payment.event.PaymentSucceededEvent;
 import com.example.bookstore.payment.repository.PaymentRepository;
-import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.service.UserService;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,9 +32,7 @@ public class StripePaymentService {
 
     private final StripeGateway stripeGateway;
     private final PaymentRepository paymentRepository;
-    private final OrderRepository orderRepository;
-    private final UserService userService;
-    private final OrderService orderService;
+    private final OrderPaymentQuery orderPaymentQuery;
     private final ApplicationEventPublisher eventPublisher;
 
     @Value("${stripe.currency:aed}")
@@ -49,16 +44,12 @@ public class StripePaymentService {
     public StripePaymentService(
             StripeGateway stripeGateway,
             PaymentRepository paymentRepository,
-            OrderRepository orderRepository,
-            UserService userService,
-            OrderService orderService,
+            OrderPaymentQuery orderPaymentQuery,
             ApplicationEventPublisher eventPublisher
     ) {
         this.stripeGateway = stripeGateway;
         this.paymentRepository = paymentRepository;
-        this.orderRepository = orderRepository;
-        this.userService = userService;
-        this.orderService = orderService;
+        this.orderPaymentQuery = orderPaymentQuery;
         this.eventPublisher = eventPublisher;
     }
 
@@ -66,20 +57,21 @@ public class StripePaymentService {
         if (orderId == null) {
             throw new IllegalArgumentException("orderId is required");
         }
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new IllegalArgumentException("userEmail is required");
+        }
 
-        User user = userService.requireUserByEmail(userEmail);
-        Order order = orderRepository.findByIdAndUserId(orderId, user.getId())
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-        log.info("Creating Stripe PaymentIntent orderId={} userId={} status={}", orderId, user.getId(), order.getStatus());
+        OrderPaymentView order = orderPaymentQuery.getMyOrderPaymentView(orderId, userEmail);
+        log.info("Creating Stripe PaymentIntent orderId={} userEmail={} status={}", orderId, userEmail, order.status());
 
-        if (order.getStatus() == OrderStatus.CANCELED) {
+        if ("CANCELED".equalsIgnoreCase(order.status())) {
             throw new IllegalArgumentException("Cannot pay for a canceled order");
         }
-        if (order.getStatus() == OrderStatus.DELIVERED) {
+        if ("DELIVERED".equalsIgnoreCase(order.status())) {
             throw new IllegalArgumentException("Cannot pay for a delivered order");
         }
 
-        BigDecimal amount = order.getSubtotal() == null ? BigDecimal.ZERO : order.getSubtotal();
+        BigDecimal amount = order.subtotal() == null ? BigDecimal.ZERO : order.subtotal();
         long amountMinor = toMinorUnits(amount);
         if (amountMinor <= 0) {
             throw new IllegalArgumentException("Order subtotal must be > 0 to create a payment");
@@ -97,12 +89,13 @@ public class StripePaymentService {
 
         Map<String, String> metadata = new HashMap<>();
         metadata.put("orderId", orderId.toString());
-        metadata.put("userId", user.getId().toString());
+        metadata.put("userEmail", userEmail);
 
         StripePaymentIntent pi = stripeGateway.createPaymentIntent(amountMinor, currency, metadata);
 
         Payment payment = Payment.builder()
-                .order(order)
+                .orderId(orderId)
+                .userEmail(userEmail)
                 .provider(PaymentProvider.STRIPE)
                 .status(PaymentStatus.CREATED)
                 .paymentIntentId(pi.id())
@@ -157,22 +150,9 @@ public class StripePaymentService {
             paymentRepository.save(payment);
         }
 
-        UUID orderId = payment.getOrder().getId();
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null) {
-            log.warn("Order not found for Payment paymentIntentId={} orderId={}", pi.getId(), orderId);
-            return;
-        }
-        if (order.getStatus() == OrderStatus.CANCELED || order.getStatus() == OrderStatus.DELIVERED) {
-            log.info("Ignoring succeeded webhook due to final order status orderId={} status={}", orderId, order.getStatus());
-            return;
-        }
-        if (order.getStatus() != OrderStatus.PAID) {
-            orderService.updateOrderStatus(orderId, OrderStatus.PAID);
-        }
-
         // Async boundary: other modules can react without StripePaymentService knowing them.
-        String userEmail = order.getUser() == null ? null : order.getUser().getEmail();
+        UUID orderId = payment.getOrderId();
+        String userEmail = payment.getUserEmail();
         eventPublisher.publishEvent(new PaymentSucceededEvent(
                 orderId,
                 userEmail,
@@ -200,19 +180,10 @@ public class StripePaymentService {
             paymentRepository.save(payment);
         }
 
-        // Best-effort: cancel order (OrderService's cancel also restores stock, but we don't depend on it here).
-        UUID orderId = payment.getOrder().getId();
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null) {
-            log.warn("Order not found for failed Payment paymentIntentId={} orderId={}", pi.getId(), orderId);
-            return;
-        }
-        if (order.getStatus() == OrderStatus.CANCELED || order.getStatus() == OrderStatus.DELIVERED) {
-            log.info("Ignoring failed webhook due to final order status orderId={} status={}", orderId, order.getStatus());
-            return;
-        }
-        orderService.updateOrderStatus(orderId, OrderStatus.CANCELED);
-        log.info("Payment failed; order canceled orderId={} paymentIntentId={}", orderId, pi.getId());
+        UUID orderId = payment.getOrderId();
+        String userEmail = payment.getUserEmail();
+        eventPublisher.publishEvent(new PaymentFailedEvent(orderId, userEmail, pi.getId()));
+        log.info("Payment failed orderId={} paymentIntentId={}", orderId, pi.getId());
     }
 
     private PaymentIntent deserializePaymentIntent(Event event) {
