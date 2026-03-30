@@ -4,12 +4,14 @@ import com.example.bookstore.review.entity.Review;
 import com.example.bookstore.review.dto.CreateReviewRequest;
 import com.example.bookstore.review.dto.UpdateReviewRequest;
 import com.example.bookstore.review.dto.ReviewResponse;
+import com.example.bookstore.review.event.ReviewCreatedEvent;
 import com.example.bookstore.review.repository.ReviewRepository;
 import com.example.bookstore.review.mapper.ReviewMapper;
 import com.example.bookstore.book.entity.Book;
 import com.example.bookstore.book.service.BookService;
 import com.example.bookstore.user.entity.User;
 import com.example.bookstore.user.service.UserService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,15 +26,18 @@ public class ReviewService {
     private final ReviewMapper reviewMapper;
     private final BookService bookService;
     private final UserService userService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ReviewService(ReviewRepository reviewRepository,
                         ReviewMapper reviewMapper,
                         BookService bookService,
-                        UserService userService) {
+                        UserService userService,
+                        ApplicationEventPublisher eventPublisher) {
         this.reviewRepository = reviewRepository;
         this.reviewMapper = reviewMapper;
         this.bookService = bookService;
         this.userService = userService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -64,6 +69,13 @@ public class ReviewService {
 
         // Update book's average rating
         updateBookAverageRating(book.getId());
+
+        eventPublisher.publishEvent(new ReviewCreatedEvent(
+                savedReview.getId(),
+                book.getId(),
+                userId,
+                savedReview.getRating()
+        ));
 
         return reviewMapper.mapToResponse(savedReview);
     }
