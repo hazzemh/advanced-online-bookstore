@@ -10,7 +10,7 @@ import com.example.bookstore.payment.entity.PaymentProvider;
 import com.example.bookstore.payment.entity.PaymentStatus;
 import com.example.bookstore.payment.repository.PaymentRepository;
 import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.repository.UserRepository;
+import com.example.bookstore.user.service.UserService;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,7 +34,7 @@ public class StripePaymentService {
     private final StripeGateway stripeGateway;
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final OrderService orderService;
 
     @Value("${stripe.currency:aed}")
@@ -47,13 +47,13 @@ public class StripePaymentService {
             StripeGateway stripeGateway,
             PaymentRepository paymentRepository,
             OrderRepository orderRepository,
-            UserRepository userRepository,
+            UserService userService,
             OrderService orderService
     ) {
         this.stripeGateway = stripeGateway;
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
-        this.userRepository = userRepository;
+        this.userService = userService;
         this.orderService = orderService;
     }
 
@@ -62,7 +62,7 @@ public class StripePaymentService {
             throw new IllegalArgumentException("orderId is required");
         }
 
-        User user = getUserByEmail(userEmail);
+        User user = userService.requireUserByEmail(userEmail);
         Order order = orderRepository.findByIdAndUserId(orderId, user.getId())
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         log.info("Creating Stripe PaymentIntent orderId={} userId={} status={}", orderId, user.getId(), order.getStatus());
@@ -216,11 +216,4 @@ public class StripePaymentService {
                 .longValueExact();
     }
 
-    private User getUserByEmail(String email) {
-        if (email == null || email.isBlank()) {
-            throw new RuntimeException("Unauthenticated");
-        }
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
 }

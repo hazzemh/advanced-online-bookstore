@@ -9,7 +9,7 @@ import com.example.bookstore.payment.entity.PaymentProvider;
 import com.example.bookstore.payment.entity.PaymentStatus;
 import com.example.bookstore.payment.repository.PaymentRepository;
 import com.example.bookstore.user.entity.User;
-import com.example.bookstore.user.repository.UserRepository;
+import com.example.bookstore.user.service.UserService;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -28,14 +28,14 @@ class StripePaymentServiceUnitTest {
         StripeGateway stripeGateway = mock(StripeGateway.class);
         PaymentRepository paymentRepository = mock(PaymentRepository.class);
         OrderRepository orderRepository = mock(OrderRepository.class);
-        UserRepository userRepository = mock(UserRepository.class);
+        UserService userService = mock(UserService.class);
         OrderService orderService = mock(OrderService.class);
 
         StripePaymentService service = new StripePaymentService(
                 stripeGateway,
                 paymentRepository,
                 orderRepository,
-                userRepository,
+                userService,
                 orderService
         );
         setPrivateField(service, "currency", "usd");
@@ -51,7 +51,7 @@ class StripePaymentServiceUnitTest {
                 .subtotal(new BigDecimal("10.00"))
                 .build();
 
-        when(userRepository.findByEmail(eq(user.getEmail()))).thenReturn(Optional.of(user));
+        when(userService.requireUserByEmail(eq(user.getEmail()))).thenReturn(user);
         when(orderRepository.findByIdAndUserId(eq(orderId), eq(userId))).thenReturn(Optional.of(order));
 
         when(paymentRepository.findByOrderId(eq(orderId))).thenReturn(Optional.empty());
