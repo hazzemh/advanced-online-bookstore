@@ -74,6 +74,7 @@ public class ReviewService {
                 savedReview.getId(),
                 book.getId(),
                 userId,
+                user.getEmail(),
                 savedReview.getRating()
         ));
 

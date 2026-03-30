@@ -6,7 +6,7 @@ public record ReviewCreatedEvent(
         UUID reviewId,
         UUID bookId,
         UUID userId,
+        String userEmail,
         int rating
 ) {
 }
-
