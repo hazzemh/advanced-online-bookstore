@@ -38,11 +38,6 @@ jwt:
 server:
   port: ${SERVER_PORT:8081}
 
-stripe:
-  secret-key: ${STRIPE_SECRET_KEY:}
-  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
-  currency: ${STRIPE_CURRENCY:usd}
-
 notifications:
   email:
     enabled: ${NOTIFICATIONS_EMAIL_ENABLED:false}

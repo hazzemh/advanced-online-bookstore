@@ -78,11 +78,6 @@ services:
       # Internal service-to-service authentication
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
 
-      # Optional integrations (leave empty unless you configure them)
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-      STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
-
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
 
