@@ -1,6 +1,5 @@
 package com.example.bookstore.payment.entity;
 
-import com.example.bookstore.order.entity.Order;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,9 +26,11 @@ public class Payment {
     @GeneratedValue
     private UUID id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false, unique = true)
-    private Order order;
+    @Column(name = "order_id", nullable = false, unique = true)
+    private UUID orderId;
+
+    @Column(name = "user_email", nullable = false)
+    private String userEmail;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

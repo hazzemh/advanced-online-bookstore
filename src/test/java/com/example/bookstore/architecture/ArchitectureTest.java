@@ -16,7 +16,6 @@ class ArchitectureTest {
             BASE + ".book",
             BASE + ".cart",
             BASE + ".order",
-            BASE + ".payment",
             BASE + ".recommendation",
             BASE + ".review",
             BASE + ".user",

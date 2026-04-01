@@ -2,8 +2,10 @@
 
 This project integrates Stripe using PaymentIntents and a webhook.
 
+As of the payment microservice split, Stripe endpoints run in `payment-service` (default port `8082`).
+
 Notes
-- Do not commit secrets. Keep `application.yml` local-only (it is ignored by git).
+- Do not commit secrets. Keep `.env` local-only (it is ignored by git).
 - In Stripe test mode, your secret key starts with `sk_test_...` and your webhook signing secret starts with `whsec_...`.
 
 ## What Was Implemented
@@ -13,19 +15,19 @@ Notes
 - Receive Stripe webhooks:
   - `POST /api/payments/stripe/webhook` (public; signature verified)
 - Persistence:
-  - `payments` table stores `order_id`, `payment_intent_id`, `amount`, `currency`, `status`.
+  - `payment-service` stores a `payments` table with `order_id`, `payment_intent_id`, `amount`, `currency`, `status`.
 
 Webhook behavior
 - `payment_intent.succeeded`:
   - marks `Payment.status = SUCCEEDED`
-  - sets `Order.status = PAID`
+  - calls the order-service internal API to set `Order.status = PAID`
 - `payment_intent.payment_failed`:
   - marks `Payment.status = FAILED`
-  - cancels the order (restores stock via `OrderService.updateOrderStatus(..., CANCELED)`)
+  - calls the order-service internal API to cancel the order (restores stock)
 
 ## Local Config
 
-Your local (ignored) `application.yml` should include:
+`payment-service` reads Stripe config from environment variables (see `payment-service/src/main/resources/application.yml`):
 
 ```yml
 stripe:
@@ -39,11 +41,13 @@ stripe:
 This is the simplest way to test the webhook locally.
 
 1. Start the app
-- Run the Spring Boot app (port is `8081` by default).
+- Start both services (recommended: `docker compose up --build`).
+  - order-service (monolith): `http://localhost:8081`
+  - payment-service: `http://localhost:8082`
 
 2. Start Stripe CLI webhook forwarding
 - Forward Stripe events to your local webhook endpoint:
-  - Forward to: `http://localhost:8081/api/payments/stripe/webhook`
+  - Forward to: `http://localhost:8082/api/payments/stripe/webhook`
 - Stripe CLI will print a webhook signing secret (`whsec_...`).
   - Put that value into `stripe.webhook-secret` (or restart with the updated value).
 
@@ -53,7 +57,7 @@ This is the simplest way to test the webhook locally.
 4. Create a PaymentIntent (your API)
 Request:
 ```http
-POST http://localhost:8081/api/payments/stripe/payment-intents
+POST http://localhost:8082/api/payments/stripe/payment-intents
 Authorization: Bearer <YOUR_JWT>
 Content-Type: application/json
 
@@ -121,7 +125,7 @@ payment_method={PAYMENT_METHOD_ID}
 ```
 
 If Stripe CLI forwarding is running, Stripe will deliver the webhook to:
-- `http://localhost:8081/api/payments/stripe/webhook`
+- `http://localhost:8082/api/payments/stripe/webhook`
 
 Then verify:
 - `payments.status = SUCCEEDED`
