@@ -1,5 +1,6 @@
 server:
-  port: ${SERVER_PORT:8082}
+  # Render injects PORT. Keep SERVER_PORT for local/docker-compose.
+  port: ${PORT:${SERVER_PORT:8082}}
 
 spring:
   datasource:

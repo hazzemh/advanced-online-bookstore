@@ -1,6 +1,7 @@
 package com.example.bookstore.common.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
@@ -19,22 +20,23 @@ import java.util.UUID;
 @Slf4j
 public class FileService {
 
-    private static final String UPLOAD_DIR = "uploads";
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     private static final List<String> ALLOWED_CONTENT_TYPES = Arrays.asList(
         "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"
     );
 
-    public FileService() {
+    private final Path uploadDir;
+
+    public FileService(@Value("${app.upload.dir:uploads}") String uploadDir) {
+        this.uploadDir = Paths.get(uploadDir);
         createUploadDirectory();
     }
 
     private void createUploadDirectory() {
         try {
-            Path uploadPath = Paths.get(UPLOAD_DIR);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-                log.info("Created upload directory: {}", uploadPath.toAbsolutePath());
+            if (!Files.exists(uploadDir)) {
+                Files.createDirectories(uploadDir);
+                log.info("Created upload directory: {}", uploadDir.toAbsolutePath());
             }
         } catch (IOException e) {
             log.error("Failed to create upload directory", e);
@@ -46,7 +48,7 @@ public class FileService {
         validateFile(file);
 
         String fileName = generateUniqueFileName(file.getOriginalFilename());
-        Path filePath = Paths.get(UPLOAD_DIR, fileName);
+        Path filePath = uploadDir.resolve(fileName);
 
         try {
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
@@ -64,7 +66,7 @@ public class FileService {
         }
 
         try {
-            Path filePath = Paths.get(UPLOAD_DIR, fileName);
+            Path filePath = uploadDir.resolve(fileName);
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
                 log.info("File deleted successfully: {}", fileName);
@@ -116,7 +118,7 @@ public class FileService {
             throw new IllegalArgumentException("Filename cannot be empty");
         }
 
-        Path filePath = Paths.get(UPLOAD_DIR, fileName);
+        Path filePath = uploadDir.resolve(fileName);
         if (!Files.exists(filePath)) {
             throw new RuntimeException("File not found: " + fileName);
         }
