@@ -21,8 +21,15 @@ spring:
     redis:
       time-to-live: ${CACHE_REDIS_TTL:10m}
 
+  # This repo includes Spring Session (Redis) on the classpath. Default to no external session store unless you
+  # explicitly opt-in (e.g. for OAuth2 login across instances).
+  session:
+    store-type: ${SESSION_STORE_TYPE:none}
+
   data:
     redis:
+      # If your provider gives you a single URL (often including auth/TLS), prefer that.
+      url: ${REDIS_URL:}
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
@@ -40,9 +47,16 @@ jwt:
   expiration: ${JWT_EXPIRATION:86400000}
 
 server:
-  port: ${SERVER_PORT:8081}
+  # Render injects PORT. Keep SERVER_PORT for local/docker-compose.
+  port: ${PORT:${SERVER_PORT:8081}}
 
 internal:
   api:
     token: ${INTERNAL_API_TOKEN:}
+
+app:
+  upload:
+    # Mount a Render Persistent Disk here (for Docker image WORKDIR=/app):
+    # APP_UPLOAD_DIR=/app/uploads
+    dir: ${APP_UPLOAD_DIR:uploads}
 
