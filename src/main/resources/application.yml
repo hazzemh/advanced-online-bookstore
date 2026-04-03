@@ -28,10 +28,11 @@ spring:
 
   data:
     redis:
-      # If your provider gives you a single URL (often including auth/TLS), prefer that.
-      url: ${REDIS_URL:}
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      # If REDIS_URL is not provided, build one from host/port so we never end up with an empty URL.
+      # Examples:
+      # - REDIS_URL=redis://localhost:6379
+      # - REDIS_URL=rediss://:password@host:port
+      url: ${REDIS_URL:redis://${REDIS_HOST:localhost}:${REDIS_PORT:6379}}
 
   security:
     oauth2:
